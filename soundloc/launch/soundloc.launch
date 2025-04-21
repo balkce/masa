@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="soundloc" name="soundloc" exec="soundloc_multi" output="screen">
+    <param from="$(find-pkg-share soundloc)/config/soundloc_config.yaml" />
+  </node>
+</launch>

@@ -1,0 +1,31 @@
+/soundloc:
+    ros__parameters:
+        distance_between_mics: 0.18
+        max_number_sources: 3
+        connect_ports: false
+        gcc_style: 4
+        # 1: GCC
+        # 2: GCC (frequency restrained)
+        # 3: GCC-PHAT
+        # 4: GCC-PHAT (frequency restrained)
+        gcc_th: 100.0 # correlation threshold (to avoid false alarms)
+        # 100: for anechoic environments
+        # 75: for noisy environments
+        redundancy_th: 20.0 # redundancy threshold (for DOA estimation)
+        # 20: for anechoic environments
+        # 45: for noisy environments
+        dynamic_gcc_th: 0 # enable a dynamic GCC threshold (experimental)
+        # 0: disabled
+        # 1: mean peak values (experimental)
+        # 2: max peak values (experimental)
+        moving_average: 1 # enable a moving average on kmeans centroids
+        # 0: disabled
+        # 1: finite memory
+        # 2: infinite memory
+        moving_factor: 1 # allow variations in DOA if the sources are moving (how many times the standard deviation)
+        memory_factor: 5 # memory of the k-means algorithm
+        kmeans_min_dist: 10 # number greater than max_number_sources
+        max_plot_confidence: 4 # maximum size of cluster to consider as maximum confidence
+        noise_threshold: 0.0001
+        noise_peak_change: 0.00015
+        verbose: false

@@ -1,0 +1,22 @@
+/masacoord:
+    ros__parameters:
+        ReadMicWavs_dir: /home/balkce/masa/src/ReadMicWavs
+        input_length: 0.512
+        init_doa: 15.0
+        eta: 0.3
+        wait_for_sdr: 1.5
+        opt_correction: True
+        max_time: 120.0
+        masa_order: [
+          #'jackd',
+          'beamformer',
+          'demucs',
+          'rosjack_write',
+          'online_sqa',
+          'ReadMicWavs',
+          'soundloc',
+          'doaoptimizer',
+          'theta_plot',
+          'doa_plot',
+        ]
+

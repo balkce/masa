@@ -5,4 +5,4 @@ pykalman
 numpy
 scikit-learn
 wavfile
-
+matplotlib

@@ -17,19 +17,21 @@ Each directory in this repository represents one agent:
 
 ## To clone:
 
-Before doing cloning this repository, you'll need GIT LFS:
+Before cloning this repository, you'll need GIT LFS:
 
-    sudo apt install git-lfs
+    `sudo apt install git-lfs`
 
 If your version of Ubuntu/Debian doesn't have the `git-lfs` package, install the following repository:
 
-    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+    `curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash`
 
 Then run the following (only needs to be run once for each user account):
 
-    git lfs install
+    `git lfs install`
 
-Then you can clone this repository by doing `git clone <url of this repository>`
+Then you can clone this repository by running:
+
+    `git clone <url of this repository>`
 
 
 ## Dependencies

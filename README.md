@@ -25,14 +25,17 @@ It can be noted that `masacoord` can run `jackaudio` as if it were another agent
 
 ### beamform2
 
-The [`beamform2`](https://github.com/balkce/beamform2) ROS2 node needs to be cloned in its own directory, and compiled as its own ROS2 package. The `beamform2` package includes:
+The [`beamform2`](https://github.com/balkce/beamform2) ROS2 node needs to be cloned in its own directory, and compiled as its own ROS2 package. It includes:
 
 - The `phase` agent, whose beamformer output is `demucs` input.
 - The `jack_write` agent that channels `demucs` output to `jackaudio`.
+- The `jack_msgs` ROS2 message type, that is used by the `phase`, `demucs`, `online_sqa` and `jack_write` agents.
+- The `ros2jack` utility that provides functions that bridge ROS2 and `jackaudio`.
+
 
 ### terminator
 
-The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord` to run all the agents in one window, by splitting it into different terminals (one per `masa` agent). To do this, it requires the `terminatorlib`, which is not included in all versions of `terminator`. Thus, it is important to install its latest version from the developer's own repository:
+The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord` to run all the agents in one window, by splitting it into different terminals (one per `masa` agent). To do this, it requires the `terminatorlib` API, which is not included in all versions of `terminator`. Thus, it is important to install its latest version from the developer's own repository:
 
    `sudo add-apt-repository ppa:mattrose/terminator`
    

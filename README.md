@@ -15,23 +15,24 @@ Each directory in this repository represents one agent:
 - `online_sqa`: measures the speech quality in `demucs` output.
 - `soundloc`: a multiple-sound-source direction-of-arrival estimator.
 
+
 ## To clone:
 
 Before cloning this repository, you'll need GIT LFS:
 
-    `sudo apt install git-lfs`
+    sudo apt install git-lfs
 
 If your version of Ubuntu/Debian doesn't have the `git-lfs` package, install the following repository:
 
-    `curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash`
+    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 
 Then run the following (only needs to be run once for each user account):
 
-    `git lfs install`
+    git lfs install
 
 Then you can clone this repository by running:
 
-    `git clone <url of this repository>`
+    git clone <url of this repository>
 
 
 ## Dependencies
@@ -56,18 +57,17 @@ The [`beamform2`](https://github.com/balkce/beamform2) ROS2 node needs to be clo
 
 The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord` to run all the agents in one window, by splitting it into different terminals (one per `masa` agent). To do this, it requires the `terminatorlib` API, which is not included in all versions of `terminator`. Thus, it is important to install its latest version from the developer's own repository:
 
-    `sudo add-apt-repository ppa:mattrose/terminator`
-
-    `sudo apt-get update`
-
-    `sudo apt install terminator`
-
+```
+sudo add-apt-repository ppa:mattrose/terminator
+sudo apt-get update
+sudo apt install terminator
+```
 
 ## Installation
 
-1. Configure the `beamform_config.yaml` file of `beamform2` so that it matches your microphone setup.
+1. Configure the `beamform_config.yaml` file of [`beamform2`](https://github.com/balkce/beamform2) so that it matches your microphone setup.
 
-2. Configure the `rosjack_config.yaml` file of `beamform2` so that:
+2. Configure the `rosjack_config.yaml` file of [`beamform2`](https://github.com/balkce/beamform2) so that:
 
     - Its output is fed through a ROS2 topic: `output_type` should be either `0` or `2`.
     - Its sampling rate matches the one that `demucs` was trained with: `ros_output_sample_rate` should be `16000`.
@@ -75,21 +75,23 @@ The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord`
     *Remember to run `colcon build` inside the `beamform2` directory so that all of these changes take effect.*
 
 3. Install the python requirements of all the agents in `masa`:
-
-    `pip install -r requirements.txt`
+    ```
+    pip install -r requirements.txt
+    ```
 
 4. [Create a ROS2 package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory.
 
 5. Specify which agents to launch in `src/masacoord/config/masacoord_config.yaml`.
 
-8. Compile the newly created `masa` ROS2 package (this may take a while):
-
-    `colcon build`
+6. Compile the newly created `masa` ROS2 package (this may take a while):
+    ```
+    colcon build
+    ```
 
 ## To run
 
 To run all of the agents in parallel, do:
-
-    `ros2 launch masacoord masacoord.launch`
-
+```
+ros2 launch masacoord masacoord.launch
+```
 You can change which agents are run by modifying `src/masacoord/config/masacoord_config.yaml`. However, for these changes to take effect, you'll need to re-compile the `masa` ROS2 package (since the change is minimal this time around, it shouldn't take as long as before).

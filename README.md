@@ -15,6 +15,23 @@ Each directory in this repository represents one agent:
 - `online_sqa`: measures the speech quality in `demucs` output.
 - `soundloc`: a multiple-sound-source direction-of-arrival estimator.
 
+## To clone:
+
+Before doing cloning this repository, you'll need GIT LFS:
+
+    sudo apt install git-lfs
+
+If your version of Ubuntu/Debian doesn't have the `git-lfs` package, install the following repository:
+
+    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+
+Then run the following (only needs to be run once for each user account):
+
+    git lfs install
+
+Then you can clone this repository by doing `git clone <url of this repository>`
+
+
 ## Dependencies
 
 ### jackaudio

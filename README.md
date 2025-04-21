@@ -57,9 +57,9 @@ The [`beamform2`](https://github.com/balkce/beamform2) ROS2 node needs to be clo
 The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord` to run all the agents in one window, by splitting it into different terminals (one per `masa` agent). To do this, it requires the `terminatorlib` API, which is not included in all versions of `terminator`. Thus, it is important to install its latest version from the developer's own repository:
 
     `sudo add-apt-repository ppa:mattrose/terminator`
-    
+
     `sudo apt-get update`
-    
+
     `sudo apt install terminator`
 
 
@@ -69,17 +69,17 @@ The [`terminator`](https://gnome-terminator.org/) console is used by `masacoord`
 
 2. Configure the `rosjack_config.yaml` file of `beamform2` so that:
 
-   - Its output is fed through a ROS2 topic: `output_type` should be either `0` or `2`.
-   - Its sampling rate matches the one that `demucs` was trained with: `ros_output_sample_rate` should be `16000`.
+    - Its output is fed through a ROS2 topic: `output_type` should be either `0` or `2`.
+    - Its sampling rate matches the one that `demucs` was trained with: `ros_output_sample_rate` should be `16000`.
 
-   *Remember to run `colcon build` inside the `beamform2` directory so that all of these changes take effect.*
+    *Remember to run `colcon build` inside the `beamform2` directory so that all of these changes take effect.*
 
 3. Install the python requirements of all the agents in `masa`:
 
     `pip install -r requirements.txt`
 
 4. [Create a ROS2 package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory.
-  
+
 5. Specify which agents to launch in `src/masacoord/config/masacoord_config.yaml`.
 
 8. Compile the newly created `masa` ROS2 package (this may take a while):

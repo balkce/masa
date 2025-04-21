@@ -1,0 +1,8 @@
+torch>2.1
+torchaudio
+julius
+pykalman
+numpy
+scikit-learn
+wavfile
+

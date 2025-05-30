@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="masacoord" name="masacoord" exec="masacoord" output="screen">
+    <param from="$(find-pkg-share masacoord)/config/masacoord_configmono.yaml" />
+  </node>
+</launch>

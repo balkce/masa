@@ -1,0 +1,11 @@
+/beamformphase:
+    ros__parameters:
+        auto_connect: false
+        output_type: 0
+        # 0 BOTH
+        # 1 ONLY JACK
+        # 2 ONLY ROS
+        write_file: false
+        write_file_path: ''
+        write_xrun: false
+        ros_output_sample_rate: 16000

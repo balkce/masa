@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="beamformphase" name="beamformphase" exec="rosjack_read" output="screen">
+    <param from="$(find-pkg-share beamformphase)/config/beamform_config.yaml" />
+    <param from="$(find-pkg-share beamformphase)/config/rosjack_config.yaml" />
+  </node>
+</launch>

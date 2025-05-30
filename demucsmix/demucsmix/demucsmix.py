@@ -16,21 +16,21 @@ from threading import Thread
 
 from ament_index_python.packages import get_package_share_directory
 
-class DemucsPhaseROSAudio(Node):
+class DemucsPhaseMixROSAudio(Node):
   def __init__(self):
-    super().__init__('demucs')
+    super().__init__('demucsmix')
     
     self.device = "cuda"
-    self.subscription = self.create_subscription(JackAudio, '/jackaudio', self.jackaudio_callback,1000)
+    self.subscription = self.create_subscription(JackAudio, '/jackaudiostereo', self.jackaudio_callback,1000)
     self.subscription  # prevent unused variable warning
     self.publisher = self.create_publisher(JackAudio, '/jackaudio_filtered', 1000)
     
     self.declare_parameter('input_length', 0.512)
     self.input_length = self.get_parameter('input_length').get_parameter_value().double_value
     
-    this_share_directory = get_package_share_directory('demucs')
+    this_share_directory = get_package_share_directory('demucsmix')
     this_base_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(this_share_directory))))
-    this_src_directory = os.path.join(this_base_directory,"src","demucs")
+    this_src_directory = os.path.join(this_base_directory,"src","demucsmix")
     self.demucs_modelpath = os.path.join(this_src_directory,"pretrained_model","best.th")
     print("Using the following pretrained model: "+self.demucs_modelpath)
     
@@ -50,6 +50,7 @@ class DemucsPhaseROSAudio(Node):
     print(f"demucs_win_num: {self.demucs_win_num} windows")
     
     self.demucs_in = [0.0]*(self.demucs_win_num*self.jack_win_size)
+    self.demucs_in_int = [0.0]*(self.demucs_win_num*self.jack_win_size)
     self.demucs_out = [0.0]*(self.demucs_win_num*self.jack_win_size)
     self.demucs_in_win_i = 0
     self.demucs_out_win_i = 0
@@ -64,8 +65,8 @@ class DemucsPhaseROSAudio(Node):
     
     #start_time = time.time()
     input_win = torch.tensor(self.demucs_in,device=self.device).unsqueeze(0).unsqueeze(0)
-    interf_signal = input_win.clone() #this is ignored by the current version of demucs, but is required
-    noisy_win = self.combine_interf (input_win,interf_signal) #this is ignored by the current version of demucs, but is required
+    interf_signal = torch.tensor(self.demucs_in_int,device=self.device).unsqueeze(0).unsqueeze(0)
+    noisy_win = self.combine_interf (input_win,interf_signal)
     output_win = self.demucs(noisy_win)[0][0].tolist()
     #exec_time = time.time() - start_time
     #print(f"execution time : {exec_time}")
@@ -78,7 +79,10 @@ class DemucsPhaseROSAudio(Node):
     self.READY_TO_CLONE_OUT = False
   
   def jackaudio_callback(self, msg):
-    self.demucs_in[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = msg.data
+    data_est = msg.data[0::2]
+    data_int = msg.data[1::2]
+    self.demucs_in[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = data_est
+    self.demucs_in_int[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = data_int
     
     self.demucs_in_win_i += 1
     if self.demucs_in_win_i >= self.demucs_win_num:
@@ -126,13 +130,13 @@ class DemucsPhaseROSAudio(Node):
 
 def main(args=None):
   rclpy.init(args=args)
-  demucsphaserosaudio = DemucsPhaseROSAudio()
-  rclpy.spin(demucsphaserosaudio)
+  demucsphasemixrosaudio = DemucsPhaseMixROSAudio()
+  rclpy.spin(demucsphasemixrosaudio)
 
   # Destroy the node explicitly
   # (optional - otherwise it will be done automatically
   # when the garbage collector destroys the node object)
-  demucsphaserosaudio.destroy_node()
+  demucsphasemixrosaudio.destroy_node()
   rclpy.shutdown()
 
 

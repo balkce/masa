@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'demucs'
+package_name = 'demucsmix'
 
 setup(
     name=package_name,
@@ -20,8 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'demucs = demucs.demucs:main',
-            'writewav = demucs.writewav:main',
+            'demucsmix = demucsmix.demucsmix:main',
         ],
     },
 )

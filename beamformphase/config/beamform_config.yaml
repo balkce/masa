@@ -1,0 +1,64 @@
+/beamformphase:
+    ros__parameters:
+        verbose: true
+        initial_angle: 0.0
+
+        #reference
+        #number_of_microphones: 3
+        #mic0: {id: 0, x: 0.0, y: 0.0}
+        #mic1: {id: 1, x: 0.0, y: 0.0}
+        #mic2: {id: 2, x: 0.0, y: 0.0}
+
+        #test bench
+        #number_of_microphones: 3
+        #mic0: {id: 0, x: 0.0, y: 0.0}
+        #mic1: {id: 1, x: 0.0, y: -0.215}
+        #mic2: {id: 2, x: -0.16, y: -0.1075}
+
+        #aira3 clean
+        number_of_microphones: 3
+        mic0: [0.000, 0.000]
+        mic1: [0.000, -0.180]
+        mic2: [-0.156, -0.090]
+
+        #aira3 noisy
+        #number_of_microphones: 3
+        #mic0: [0.000, 0.000]
+        #mic1: [0.000, -0.210]
+        #mic2: [-0.182, -0.105]
+
+        #8soundusbcarboard
+        #number_of_microphones: 3
+        #mic0: {id: 0, x:  0.000, y:  0.000}
+        #mic1: {id: 1, x:  0.000, y: -0.210}
+        #mic2: {id: 2, x: -0.181, y: -0.105}
+
+        #2mictest
+        #number_of_microphones: 2
+        #mic0: {id: 0, x:  0.000, y:  0.000}
+        #mic1: {id: 1, x:  0.000, y: -0.210}
+
+        #aira16
+        #number_of_microphones: 16
+        #mic0:  {id:  0, x:  0.158, y:  0.115, z:  0.000}
+        #mic1:  {id:  1, x:  0.158, y: -0.115, z:  0.000}
+        #mic2:  {id:  2, x: -0.045, y:  0.000, z:  0.000}
+        #mic3:  {id:  3, x: -0.050, y: -0.188, z:  0.000}
+        #mic4:  {id:  4, x: -0.195, y:  0.000, z:  0.000}
+        #mic5:  {id:  5, x: -0.057, y:  0.186, z:  0.000}
+        #mic6:  {id:  6, x:  0.180, y:  0.000, z: -0.168}
+        #mic7:  {id:  7, x:  0.158, y: -0.115, z: -0.335}
+        #mic8:  {id:  8, x:  0.056, y: -0.171, z: -0.168}
+        #mic9:  {id:  9, x: -0.050, y: -0.188, z: -0.335}
+        #mic10: {id: 10, x: -0.128, y: -0.098, z: -0.168}
+        #mic11: {id: 11, x: -0.195, y:  0.000, z: -0.335}
+        #mic12: {id: 12, x: -0.132, y:  0.098, z: -0.168}
+        #mic13: {id: 13, x: -0.057, y:  0.186, z: -0.335}
+        #mic14: {id: 14, x:  0.056, y:  0.171, z: -0.168}
+        #mic15: {id: 15, x:  0.158, y:  0.115, z: -0.335}
+
+        #aira16-binaural (15,9) -1 = (14,8)
+        #number_of_microphones: 2
+        #mic0: {id: 14, x: 0.000, y:  0.000}
+        #mic1: {id:  8, x: 0.000, y: -0.342}
+

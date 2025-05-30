@@ -1,0 +1,11 @@
+<launch>
+  <node pkg="beamformphase" name="beamformphase" exec="rosjack_write_stereo" output="screen">
+    <param from="$(find-pkg-share beamformphase)/config/beamform_config.yaml" />
+    <param name="auto_connect" value="false" />
+    <param name="output_type" value="1" />
+    <param name="write_file" value="false" />
+    <param name="write_file_path" value="" />
+    <param name="write_xrun" value="false" />
+    <param name="ros_output_sample_rate" value="16000" />
+  </node>
+</launch>

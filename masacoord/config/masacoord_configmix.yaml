@@ -9,11 +9,8 @@
         wait_for_qual: 1.5
         max_time: 120.0
         masa_order: [
-          #'jackd',
-          'beamformer',
-          #'beamformermix',
-          'demucs',
-          #'demucsmix',
+          'beamformermix',
+          'demucsmix',
           'jack_write',
           'online_sqa',
           'ReadMicWavs',

@@ -42,9 +42,8 @@ jack_port_t **input_ports;
 jack_client_t *client;
 
 // FFTW:
-std::complex<double> *i_fft_4N, *i_time_4N, *o_fft_4N, *o_time_4N;
 std::complex<double> *i_fft_2N, *i_time_2N, *o_fft_2N, *o_time_2N;
-fftw_plan i_forward_4N, o_inverse_4N, i_forward_2N, o_inverse_2N;
+fftw_plan i_forward_2N, o_inverse_2N;
 std::complex<double> ig(0.0, 1.0); 		// imaginary unit
 
 // default parameters:
@@ -60,11 +59,11 @@ double std_doa = 90.0;					// standard deviation of the direction of arrival
 double std_cum = 90.0;					// standard deviation of the direction of arrival (cummulative)
 unsigned int n_sources = 1; 			// default number of sources to be detected
 double gcc_th = GCC_TH;					// default GCC threshold
-double fRes; 							// frequency resolution
 
 double f_min = 1000.0;					// minimum frequency of the desired signal [Hz]
 double f_max = 4000.0;					// maximum frequency of the desired signal [Hz]
 int kmin, kmax;							// discrete minimum and maximum frequencies of the desired signal
+double f0;
 
 unsigned int n_in_channels = 3;			// number of input channels
 
@@ -116,9 +115,15 @@ bool part_of_source = 0;
 bool in_silence = 1;
 
 std::vector < source > sources;
+std::vector < double > doafrequencies;
+
+// frequency mask based on source class
+double* freqmask;
+double* freqs;
 
 //GLib Thread:
 GMutex mutex_sources;
+GMutex mutex_doafrequencies;
 
 //Sleep function in milliseconds
 void millisleep(int milli){
@@ -132,6 +137,12 @@ void soundloc_clear(){
 	g_mutex_lock (&mutex_sources);
 	sources.clear();
 	g_mutex_unlock (&mutex_sources);
+}
+
+void doafrequencies_clear(){
+	g_mutex_lock (&mutex_doafrequencies);
+	doafrequencies.clear();
+	g_mutex_unlock (&mutex_doafrequencies);
 }
 
 double state2angle (double* state) {
@@ -428,7 +439,7 @@ void phat (std::complex<double>* Z, std::complex<double>* X, std::complex<double
 		case 2 :	// GCC (frequency restrained)
 			for (i = 0; i < kmin; ++i)							Z[i] = 0.0;
 			for (i = kmax; i < X_length-kmax; ++i)				Z[i] = 0.0;
-			for (i = X_length-kmin; i < X_length; ++i)			Z[i] = 0.0;	
+			for (i = X_length-kmin; i < X_length; ++i)			Z[i] = 0.0;
 			for (i = kmin; i < kmax; ++i)						Z[i] = X[i] * conj(Y[i]);
 			for (i = X_length-kmax; i < X_length-kmin; ++i)		Z[i] = X[i] * conj(Y[i]);
 			break;
@@ -441,7 +452,7 @@ void phat (std::complex<double>* Z, std::complex<double>* X, std::complex<double
 		case 4 :	// GCC-PHAT (frequency restrained)
 			for (i = 0; i < kmin; ++i)							Z[i] = 0.0;
 			for (i = kmax; i < X_length-kmax; ++i)				Z[i] = 0.0;
-			for (i = X_length-kmin; i < X_length; ++i) 			Z[i] = 0.0;		
+			for (i = X_length-kmin; i < X_length; ++i) 			Z[i] = 0.0;
 			for (i = kmin; i < kmax; ++i) {
 				temp = X[i] * conj(Y[i]);
 				(abs(temp) == 0.0) ? (Z[i] = 0.0) : (Z[i] = temp/abs(temp));
@@ -471,6 +482,27 @@ double unwrap (int index, int N, double max_index) {
 		return -max_index;
 	
 	return temp;
+}
+
+void build_freqmask(int freqselect_range){
+	unsigned int i,j;
+	g_mutex_lock (&mutex_doafrequencies);
+	
+	double range_in_hertz = f0 * (double)freqselect_range;
+	
+	for(i = 0; i < window_size_2; ++i) {
+		freqmask[i] = 1.0;
+	}
+	
+	for(j = 0; j < doafrequencies.size(); ++j) {
+		for(i = 0; i < window_size_2; ++i) {
+			if(freqs[i] >= doafrequencies[j] - range_in_hertz && freqs[i] <= doafrequencies[j] + range_in_hertz){
+				freqmask[i] = 0.0;
+			}
+		}
+	}
+	
+	g_mutex_unlock (&mutex_doafrequencies);
 }
 
 int jack_callback (jack_nframes_t nframes, void *arg){
@@ -529,6 +561,15 @@ int jack_callback (jack_nframes_t nframes, void *arg){
 			for (i = 0; i < window_size_2; ++i)
 				X_gcc[j][i] = i_fft_2N[i];
 		}
+		
+		//applying frequency mask
+		g_mutex_lock (&mutex_doafrequencies);
+		for (j = 0; j < n_in_channels; ++j) {
+			for (i = 0; i < window_size_2; ++i){
+				X_gcc[j][i] *= freqmask[i];
+			}
+		}
+		g_mutex_unlock (&mutex_doafrequencies);
 		
 		// 3- multiply pairs of FFTs (time reversing one of them), and
 		// 4- apply iFFT
@@ -832,8 +873,6 @@ void soundloc_init(double distance_between_mics_in, int max_number_sources, int 
 	dt_max = mic_separation/c;
 	N_max = dt_max*sample_rate;
 	
-	fRes = 2.0*M_PI/window_size;
-	
 	hist_length = MEMORY_FACTOR*n_sources;
 	
 	// initialization of internal buffers
@@ -848,6 +887,18 @@ void soundloc_init(double distance_between_mics_in, int max_number_sources, int 
 	DOA_valid	= (double *) calloc(n_sources, sizeof(double));
 	kalmanState = (double **) calloc(4, sizeof(double*));
 	covMatrix   = (double **) calloc(4*n_sources, sizeof(double*));
+	freqmask		= (double *) calloc(window_size_2, sizeof(double));
+	freqs				= (double *) calloc(window_size_2, sizeof(double));
+	for(i = 0; i < window_size_2; ++i) {
+		freqmask[i] = 1.0;
+	}
+	f0 = sample_rate/window_size_2;
+	freqs[0] = 0.0;
+	for(i = 1; i < (unsigned int)nframes; ++i){
+		freqs[i] = f0*((double)i);
+		freqs[window_size_2-i] = freqs[i];
+	}
+	freqs[nframes] = f0*nframes;
 	
 	counter		= (unsigned int *) calloc(n_sources, sizeof(unsigned int));
 	dcounter	= (int *) calloc(n_sources, sizeof(int));
@@ -896,14 +947,6 @@ void soundloc_init(double distance_between_mics_in, int max_number_sources, int 
 	}
 	
 	// - FFTW3 buffers
-	i_fft_4N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size);
-	i_time_4N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size);
-	o_fft_4N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size);
-	o_time_4N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size);
-	
-	i_forward_4N = fftw_plan_dft_1d(window_size, reinterpret_cast<fftw_complex*>(i_time_4N), reinterpret_cast<fftw_complex*>(i_fft_4N), FFTW_FORWARD, FFTW_MEASURE);
-	o_inverse_4N = fftw_plan_dft_1d(window_size, reinterpret_cast<fftw_complex*>(o_fft_4N), reinterpret_cast<fftw_complex*>(o_time_4N), FFTW_BACKWARD, FFTW_MEASURE);
-	
 	i_fft_2N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size_2);
 	i_time_2N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size_2);
 	o_fft_2N = (std::complex<double>*) fftw_malloc(sizeof(std::complex<double>) * window_size_2);
@@ -912,11 +955,10 @@ void soundloc_init(double distance_between_mics_in, int max_number_sources, int 
 	i_forward_2N = fftw_plan_dft_1d(window_size_2, reinterpret_cast<fftw_complex*>(i_time_2N), reinterpret_cast<fftw_complex*>(i_fft_2N), FFTW_FORWARD, FFTW_MEASURE);
 	o_inverse_2N = fftw_plan_dft_1d(window_size_2, reinterpret_cast<fftw_complex*>(o_fft_2N), reinterpret_cast<fftw_complex*>(o_time_2N), FFTW_BACKWARD, FFTW_MEASURE);
 	
-	
 	// - hann window
-	hann = (jack_default_audio_sample_t *) calloc(window_size, sizeof(jack_default_audio_sample_t)); 
-	for(i = 0; i < window_size; ++i) {
-		hann[i] = 0.5 - 0.5*cos(2.0*M_PI* ((double) i/(window_size-1)));
+	hann = (jack_default_audio_sample_t *) calloc(nframes, sizeof(jack_default_audio_sample_t)); 
+	for(i = 0; i < (unsigned int)nframes; ++i) {
+		hann[i] = 0.5 - 0.5*cos(2.0*M_PI* ((double) i/(nframes-1)));
 	}
 	
 	/* display the current sample rate. */

@@ -80,11 +80,14 @@ typedef struct{
 } source;
 
 extern vector < source > sources;
+extern vector < double > doafrequencies;
 
 extern void millisleep(int milli);
 extern void soundloc_finalize();
 extern void soundloc_clear();
 extern void soundloc_init(double distance_between_mics_in, int max_number_sources, int connect_ports, int gcc_style, double gcc_th_in, double redundancy_th, int dynamic_gcc_th, int moving_average, int moving_factor, int memory_factor, int kmeans_min_dist_in, double noise_threshold_in, double noise_peak_change_in, int verbose);
+extern void doafrequencies_clear();
+extern void build_freqmask(int freqselect_range);
 
 
 // Tool functions

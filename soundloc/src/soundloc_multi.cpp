@@ -19,6 +19,7 @@
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "soundloc/msg/doa.hpp"
+#include "soundloc/msg/frequencies.hpp"
 
 //Glib, for threading (GThread)
 #include <glib.h>
@@ -26,6 +27,8 @@
 std::shared_ptr<rclcpp::Node> rosjack_node;
 rclcpp::Publisher<soundloc::msg::DOA>::SharedPtr theta_topic;
 int max_plot_confidence;
+
+int freqselect_range;
 
 static gpointer doa_stream(gpointer data){
 	std::cout << "SoundLoc.DOAStream: Starting doa_stream thread.\n";fflush(stdout);
@@ -86,6 +89,21 @@ bool ros_get_sound_directions(const std::shared_ptr<std_srvs::srv::Trigger::Requ
 	return true;
 }
 
+void freqs_roscallback(const soundloc::msg::Frequencies::SharedPtr msg){
+	std::cout << "SoundLoc: Updating frequencies for source localization... " << std::endl;
+	
+	doafrequencies_clear();
+	for (int i = 0; i < msg->size; ++i){
+		doafrequencies.push_back(msg->w[i]);
+		std::cout << "\t "<< msg->w[i];
+	}
+	std::cout << std::endl;
+	
+	build_freqmask(freqselect_range);
+	
+	std::cout << "\t done. " << std::endl;
+}
+
 int main( int argc, char *argv[] )
 {
 	//ROS initialization
@@ -95,7 +113,9 @@ int main( int argc, char *argv[] )
 	rosjack_node = rclcpp::Node::make_shared("soundloc");
 	rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_soundloc = rosjack_node->create_service<std_srvs::srv::Trigger>("reset_soundloc", &ros_reset_soundloc);
 	rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr get_sound_directions = rosjack_node->create_service<std_srvs::srv::Trigger>("get_sound_directions", &ros_get_sound_directions);
+	rclcpp::Subscription<soundloc::msg::Frequencies>::SharedPtr doafrequencies_subscriber = rosjack_node->create_subscription<soundloc::msg::Frequencies>("doafrequencies", 1000, freqs_roscallback);
 	theta_topic = rosjack_node->create_publisher<soundloc::msg::DOA>("theta_est", 10);
+	
 	
 	std::string node_name = rosjack_node->get_name();
 	std::cout << "ROS parameters: " << node_name << std::endl;
@@ -224,6 +244,14 @@ int main( int argc, char *argv[] )
 	}else{
 		noise_peak_change = 0.0015;
 		RCLCPP_WARN(rosjack_node->get_logger(),"Noise peak change argument not found in ROS param server, using default value (%f).",noise_peak_change);
+	}
+	
+	rosjack_node->declare_parameter("freqselect_range",10);
+	if (rosjack_node->get_parameter("freqselect_range",freqselect_range)){
+		RCLCPP_INFO(rosjack_node->get_logger(),"Frequency select range: %d",freqselect_range);
+	}else{
+		freqselect_range = 10;
+		RCLCPP_WARN(rosjack_node->get_logger(),"Frequency select range argument not found in ROS param server, using default value (%d).",freqselect_range);
 	}
 	
 	bool verbose;

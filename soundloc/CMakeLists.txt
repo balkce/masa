@@ -31,6 +31,7 @@ pkg_check_modules (EIGEN eigen3)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DOA.msg"
+  "msg/Frequencies.msg"
   DEPENDENCIES std_msgs
 )
 

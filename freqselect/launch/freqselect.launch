@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="freqselect" name="freqselect" exec="freqselect" output="screen">
+    <param from="$(find-pkg-share freqselect)/config/freqselect_config.yaml" />
+  </node>
+</launch>

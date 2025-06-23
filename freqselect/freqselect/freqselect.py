@@ -21,6 +21,8 @@ class FrequencySelector(Node):
     
     self.declare_parameter('time_between_predictions', 0.5)
     self.time_between_predictions = self.get_parameter('time_between_predictions').get_parameter_value().double_value
+    self.declare_parameter('vad_threshold', 0.005)
+    self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
     
     this_share_directory = get_package_share_directory('freqselect')
     this_base_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(this_share_directory))))
@@ -42,6 +44,7 @@ class FrequencySelector(Node):
     
     self.buffer_size = 0
     self.buffer_pasado = np.array([])
+    self.hann_win = np.array([])
     
     self.jack_thread = threading.Thread(target=self.jack_main)
     self.jack_thread.start()
@@ -51,31 +54,42 @@ class FrequencySelector(Node):
   
   def calculate_mfcc(self, y, sr, buffer_size, n_mfcc=12):
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_fft=buffer_size, n_mfcc=n_mfcc, window='hann', hop_length=int(sr*.041)).mean(axis=1)
+    
     return mfcc
   
   def get_prediction(self):
+    input_i = 0
     while (True):
       sleep(self.time_between_predictions)
+      #input_i += 1
       
-      mfcc = self.calculate_mfcc(self.buffer_pasado, self.jackclient.samplerate, self.buffer_size)
-      # self.get_logger().info(f"{mfcc.shape = }, {type(mfcc) = }")
+      rms = np.sqrt(np.sum(np.power(self.buffer_pasado,2))/self.buffer_pasado.shape[0])
       
-      prediction = self.model.predict(mfcc.reshape(1,12))[0]
-      
-      if prediction in self.classes:
-        if self.last_prediction != prediction:
-          msg = Frequencies()
-          msg.w = self.classes[prediction]
-          msg.size = len(msg.w)
-          msg.header.stamp = self.get_clock().now().to_msg()
-          self.publisher.publish(msg)
+      if rms >= self.vad_threshold:
+        mfcc = self.calculate_mfcc(self.buffer_pasado, self.jackclient.samplerate, self.buffer_size)
+        #mfcc = self.calculate_mfcc(self.buffer_pasado*self.hann_win, self.jackclient.samplerate, self.buffer_size)
+        #self.get_logger().info(f"{mfcc.shape = }, {type(mfcc) = }")
+        
+        prediction = self.model.predict(mfcc.reshape(1,12))[0]
+        
+        if prediction in self.classes:
+          #t = input_i * self.time_between_predictions
+          #self.get_logger().info(f"{t = } -> {prediction = }")
           
-          self.get_logger().info(f"FreqSelect: {prediction = } !published")
-          self.last_prediction = prediction
-        #else:
-        #  self.get_logger().info(f"FreqSelect: {prediction = }")
-      else:
-        self.get_logger().info(f"FreqSelect: unknown class {prediction = }")
+          if self.last_prediction != prediction:
+            msg = Frequencies()
+            msg.w = self.classes[prediction]
+            msg.size = len(msg.w)
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.publisher.publish(msg)
+            
+            #self.get_logger().info(f"FreqSelect: {prediction = } !published")
+            self.get_logger().info(f"FreqSelect: {prediction = }")
+            self.last_prediction = prediction
+          else:
+            self.get_logger().info(f"FreqSelect: {prediction = }")
+        else:
+          self.get_logger().info(f"FreqSelect: unknown class {prediction = }")
   
   def jack_main(self):
     self.jackclient = jack.Client('freqselect', use_exact_name=True)
@@ -84,6 +98,7 @@ class FrequencySelector(Node):
     
     self.buffer_size = self.jackclient.blocksize
     self.buffer_pasado = np.zeros((90*self.buffer_size))
+    self.hann_win = np.hanning(self.buffer_pasado.shape[0])
     self.get_logger().info(f"FreqSelect: using buffer of {self.buffer_pasado.shape[0]/self.jackclient.samplerate} s.")
     
     @self.jackclient.set_process_callback

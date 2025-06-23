@@ -3,14 +3,14 @@ A framework for sound source localization, separation and classification, featur
 
 ## Basis of operation
 
-![Diagram of the whole system](/MASA.png?raw=true)
+![Diagram of the whole system](/MASACurrent.png?raw=true)
 
 The following directories in this repository represent one agent:
 
 - `beamformphase`: a beamformer based on the phase difference between microphones. It provides two variations: `phase` that provides just the estimation of the source of interest; and `phasemix` that also provides the estimation of the interference, in a multiplexed format. It also provides the `jack_write` agent that channels the output of the `demucs`/`demucsmix` agent to the JACK server.
 - `demucs`: a speech enhancer that is trained with the output of the `phase` beamformer.
 - `demucsmix`: a variation of `demucs` that uses the output of the `phasemix` beamformer variation.
-- `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality 
+- `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality.
 - `doa_plot`: a plotter of the outputs of both the `soundloc` and the `doaoptimizer` agents.
 - `jack_control`: controls the start and end of the [`jackaudio`](https://jackaudio.org/) server.
 - `masacoord`: coordinates the start and end of all the agents using a [`terminator`](https://gnome-terminator.org/) split console.

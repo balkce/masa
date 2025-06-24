@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'doa_plot = doa_plot.doa_plot:main',
             'theta_plot = doa_plot.theta_plot:main',
+            'qual_plot = doa_plot.qual_plot:main',
         ],
     },
 )

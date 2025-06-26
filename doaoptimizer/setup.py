@@ -23,6 +23,7 @@ setup(
             'doaoptimizer = doaoptimizer.doaoptimizer:main',
             'doaoptimizer_fb = doaoptimizer.doaoptimizer_fb:main',
             'doaoptimizer_bc = doaoptimizer.doaoptimizer_bc:main',
+            'doaoptimizer_dummy = doaoptimizer.doaoptimizer_dummy:main',
         ],
     },
 )

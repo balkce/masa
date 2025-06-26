@@ -9,17 +9,11 @@
         max_time: 120.0
         merge_doas: True
         masa_order: [
-          #'jackd',
           'beamformer',
-          #'beamformermix',
           'demucs',
-          #'demucsmix',
           'jack_write',
-          #'jack_writemix',
-          'online_sqa',
           'soundloc',
-          'doaoptimizer',
-          'freqselect',
+          'doaoptimizer_dummy',
           'theta_plot',
           'doa_plot',
           'qual_plot',

@@ -49,8 +49,6 @@ class MASACoord(Node):
       exit()
     self.get_logger().info("Terminator path -> "+self.terminator_path)
     
-    self.declare_parameter('ReadMicWavs_dir', "/home/balkce/masa/src/ReadMicWavs")
-    self.ReadMicWavs_dir = self.get_parameter('ReadMicWavs_dir').get_parameter_value().string_value
     self.declare_parameter('input_length', 0.512)
     self.input_length = str(self.get_parameter('input_length').get_parameter_value().double_value)
     self.declare_parameter('init_doa', 15.0)
@@ -63,31 +61,176 @@ class MASACoord(Node):
     self.max_time = str(self.get_parameter('max_time').get_parameter_value().double_value)
     self.declare_parameter('smooth_weight', 0.9)
     self.smooth_weight = str(self.get_parameter('smooth_weight').get_parameter_value().double_value)
+    self.declare_parameter('merge_doas', True)
+    self.merge_doas = str(self.get_parameter('merge_doas').get_parameter_value().bool_value)
     self.declare_parameter('quality_type', 'sdr')
     self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
     if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq':
-      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', or 'pesq'. Defaulting to 'sdr'.")
-      self.quality_type = 'sdr'
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', or 'pesq'. Defaulting to 'stoi'.")
+      self.quality_type = 'stoi'
     
     self.masa_nodes ={
-      'jackd'            : {'cmd': 'ros2 run jack_control jack_control --ros-args -p auto_start:=True', 'cmd_fi':None, 'cmd_fu':[['sleep','2']]},
-      'beamformer'       : {'cmd': 'ros2 launch beamformphase phase.launch', 'cmd_fi':None, 'cmd_fu':[['sleep','2'],['jack_disconnect','beamformphase:output','system:playback_1']]},
-      'beamformermix'    : {'cmd': 'ros2 launch beamformphase phasemix.launch', 'cmd_fi':None, 'cmd_fu':[['sleep','2'],['jack_disconnect','beamformphase:output','system:playback_1']]},
-      'demucs'           : {'cmd': 'ros2 run demucs demucs  --ros-args -p input_length:='+self.input_length+'', 'cmd_fi':None, 'cmd_fu':None},
-      'demucsmix'        : {'cmd': 'ros2 run demucsmix demucsmix  --ros-args -p input_length:='+self.input_length+'', 'cmd_fi':None, 'cmd_fu':None},
-      'jack_write'       : {'cmd': 'ros2 launch beamformphase rosjack_write.launch', 'cmd_fi':None, 'cmd_fu':None},
-      'online_sqa'       : {'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+'', 'cmd_fi':None, 'cmd_fu':[['sleep','1']]},
-      'ReadMicWavs'      : {'cmd': self.ReadMicWavs_dir+'/ReadMicWavsLoop beamformphase input_ '+self.ReadMicWavs_dir+'/corpus48000/clean-2source090_2/ 3 4', 'cmd_fi':[['ros2','topic','pub','-1','/theta','std_msgs/msg/Float32','data: '+self.init_doa+' ']], 'cmd_fu':[['sleep','1']]},
-      #'ReadMicWavs'      : {'cmd': self.ReadMicWavs_dir+'/ReadMicWavsLoop beamformphase input_ '+self.ReadMicWavs_dir+'/corpus48000/noisy-2source/ 3 4', 'cmd_fi':[['ros2','topic','pub','-1','/theta','std_msgs/msg/Float32','data: '+self.init_doa+' ']], 'cmd_fu':[['sleep','1']]},
-      'soundloc'         : {'cmd': 'ros2 launch soundloc soundloc.launch', 'cmd_fi':None, 'cmd_fu':[['sleep','2'],['jack_connect','ReadMicWavs:out_1','soundloc:input_1'],['jack_connect','ReadMicWavs:out_2','soundloc:input_2'],['jack_connect','ReadMicWavs:out_3','soundloc:input_3']]},
-      #'doaoptimizer'     : {'cmd': 'ros2 run doaoptimizer doaoptimizer  --ros-args -p wait_for_sdr:='+self.wait_for_qual+' -p init_doa:='+self.init_doa+' -p eta:='+self.eta+' -p opt_correction:=True'+'', 'cmd_fi':[['sleep','7']], 'cmd_fu':None},
-      'doaoptimizer'     : {'cmd': 'ros2 run doaoptimizer doaoptimizer_fb  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p eta:='+self.eta+' -p quality_type:='+self.quality_type+''+'', 'cmd_fi':[['sleep','1']], 'cmd_fu':None},
-      'theta_plot'       : {'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+'', 'cmd_fi':None, 'cmd_fu':None},
-      #'theta_plot'       : {'cmd': 'ros2 run doa_plot theta_plot', 'cmd_fi':None, 'cmd_fu':None},
-      'doa_plot'         : {'cmd': 'ros2 run doa_plot doa_plot', 'cmd_fi':None, 'cmd_fu':None},
-      'qual_plot'        : {'cmd': 'ros2 run doa_plot qual_plot', 'cmd_fi':None, 'cmd_fu':None},
-      #'template1'        : {'cmd': '', 'cmd_fi':None, 'cmd_fu':None},
-      #'template2'        : {'cmd': '', 'cmd_fi':[['command1','arg1'],['command2','arg2']], 'cmd_fu':[['command3','arg3'],['command4','arg4']]},
+      'jackd':
+        {
+          'cmd': 'ros2 run jack_control jack_control --ros-args -p auto_start:=True',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','2']
+            ]
+        },
+      
+      'beamformer':
+        {
+          'cmd': 'ros2 launch beamformphase phase.launch',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','2'],
+              ['jack_disconnect','beamformphase:output','system:playback_1']
+            ]
+        },
+      
+      'beamformermix':
+        {
+          'cmd': 'ros2 launch beamformphase phasemix.launch',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','2'],
+              ['jack_disconnect','beamformphase:output','system:playback_1']
+            ]
+        },
+      
+      'demucs':
+        {
+          'cmd': 'ros2 run demucs demucs  --ros-args -p input_length:='+self.input_length+'',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'demucsmix':
+        {
+          'cmd': 'ros2 run demucsmix demucsmix  --ros-args -p input_length:='+self.input_length+'',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'jack_write':
+        {
+          'cmd': 'ros2 launch beamformphase rosjack_write.launch',
+          #'cmd': 'ros2 launch beamformphase rosjack_writewav.launch',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'jack_writemix':
+        {
+          'cmd': 'ros2 launch beamformphase rosjack_write_stereo.launch',
+          #'cmd': 'ros2 launch beamformphase rosjack_writewav_stereo.launch',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'online_sqa':
+        {
+          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+'',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','1']
+            ]
+        },
+      
+      'soundloc':
+        {
+          'cmd': 'ros2 launch soundloc soundloc.launch',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','2'],
+              ['jack_connect','system:capture_1','soundloc:input_1'],
+              ['jack_connect','system:capture_2','soundloc:input_2'],
+              ['jack_connect','system:capture_3','soundloc:input_3']
+            ]
+        },
+      
+      'doaoptimizer':
+        {
+          'cmd': 'ros2 run doaoptimizer doaoptimizer_fb  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p eta:='+self.eta+' -p quality_type:='+self.quality_type+' -p merge_doas:='+self.merge_doas+'',
+          'cmd_fi':
+            [
+              ['sleep','1']
+            ],
+          'cmd_fu': None
+        },
+      
+      'doaoptimizer_dummy':
+        {
+          'cmd': 'ros2 run doaoptimizer doaoptimizer_dummy  --ros-args -p wait_for_qual:='+self.wait_for_qual+'',
+          'cmd_fi':
+            [
+              ['sleep','1']
+            ],
+          'cmd_fu': None
+        },
+      
+      'freqselect':
+        {
+          'cmd': 'ros2 run freqselect freqselect',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','2'],
+              ['jack_connect','system:capture_1','freqselect:input_1']
+            ]
+        },
+      
+      'theta_plot':
+        {
+          #'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+'',
+          'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+' -p terminal_output:=True 2>&1 | tee theta_hist.txt',
+          #'cmd': 'ros2 run doa_plot theta_plot',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'doa_plot':
+        {
+          'cmd': 'ros2 run doa_plot doa_plot',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'qual_plot':
+        {
+          'cmd': 'ros2 run doa_plot qual_plot',
+          'cmd_fi':None,
+          'cmd_fu':None
+        },
+      
+      #'template1':
+      #  {
+      #    'cmd': '',
+      #    'cmd_fi': None,
+      #    'cmd_fu': None
+      #  },
+      
+      #'template2':
+      #  {
+      #    'cmd': '',
+      #    'cmd_fi':
+      #      [
+      #        ['command1','arg1'],
+      #        ['command2','arg2']
+      #      ],
+      #    'cmd_fu':
+      #      [
+      #        ['command3','arg3'],
+      #        ['command4','arg4']
+      #      ]
+      #  },
+      
     }
     
     self.declare_parameter('masa_order', [""])

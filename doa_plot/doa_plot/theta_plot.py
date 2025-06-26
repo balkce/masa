@@ -25,8 +25,10 @@ class ThetaPlot(Node):
     
     self.declare_parameter('max_time', 0.0)
     self.max_time = self.get_parameter('max_time').get_parameter_value().double_value
-    self.declare_parameter('wait_for_sdr', 1.5)
-    self.wait_for_sdr = self.get_parameter('wait_for_sdr').get_parameter_value().double_value
+    self.declare_parameter('wait_for_qual', 1.5)
+    self.wait_for_qual = self.get_parameter('wait_for_qual').get_parameter_value().double_value
+    self.declare_parameter('terminal_output', False)
+    self.terminal_output = self.get_parameter('terminal_output').get_parameter_value().bool_value
     
     self.subscription = self.create_subscription(Float32,'theta',self.theta_callback,10)
     self.subscription  # prevent unused variable warning
@@ -60,7 +62,7 @@ class ThetaPlot(Node):
     if self.max_time > 0.0:
       self.get_logger().info("Plotting theta history...")
       self.get_logger().info("max. time: %0.2f" % self.max_time)
-      self.get_logger().info("SDR hop  : %0.2f" % self.wait_for_sdr)
+      self.get_logger().info("time hop : %0.2f" % self.wait_for_qual)
       
       self.fig_time, self.ax_time = plt.subplots(num='DOAOptimizer History')
       #self.fig_time.canvas.manager.window.move(1280,0)
@@ -81,7 +83,8 @@ class ThetaPlot(Node):
       self.t = []
   
   def theta_callback(self,msg):
-    #print(msg.data)
+    if self.terminal_output:
+      self.get_logger().info("theta: %0.2f" % msg.data)
     
     self.fig_theta.canvas.restore_region(self.bg_theta)
     self.ln_theta.set_xdata([0.0, msg.data*3.14159/180])
@@ -96,7 +99,7 @@ class ThetaPlot(Node):
         self.t.append(0.0)
       else:
         self.theta_hist.append(msg.data)
-        self.t.append(self.t[-1]+self.wait_for_sdr)
+        self.t.append(self.t[-1]+self.wait_for_qual)
       
       #print(self.theta_hist)
       #print(self.t)

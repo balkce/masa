@@ -16,6 +16,5 @@
           'doaoptimizer_dummy',
           'theta_plot',
           'doa_plot',
-          'qual_plot',
         ]
 

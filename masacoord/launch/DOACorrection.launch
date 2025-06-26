@@ -1,5 +1,5 @@
 <launch>
   <node pkg="masacoord" name="masacoord" exec="masacoord" output="screen">
-    <param from="$(find-pkg-share masacoord)/config/masacoord_config.yaml" />
+    <param from="$(find-pkg-share masacoord)/config/DOACorrection.yaml" />
   </node>
 </launch>

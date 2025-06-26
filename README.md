@@ -7,9 +7,9 @@ A framework for sound source localization, separation and classification, featur
 
 The following directories in this repository represent one agent:
 
-- `beamformphase`: a beamformer based on the phase difference between microphones. It provides two variations: `phase` that provides just the estimation of the source of interest; and `phasemix` that also provides the estimation of the interference, in a multiplexed format. It also provides the `jack_write` agent that channels the output of the `demucs`/`demucsmix` agent to the JACK server.
-- `demucs`: a speech enhancer that is trained with the output of the `phase` beamformer.
-- `demucsmix`: a variation of `demucs` that uses the output of the `phasemix` beamformer variation.
+- `beamformphase`: a beamformer based on the phase difference between microphones. It provides two variations: `beamformer` that provides just the estimation of the source of interest; and `beamformermix` that also provides the estimation of the interference, in a multiplexed format. It also provides the `jack_write` agent that channels the output of the `demucs`/`demucsmix` agent to the JACK server.
+- `demucs`: a speech enhancer that is trained with the output of the `beamformer` agent.
+- `demucsmix`: a variation of `demucs` that uses the output of the `beamformermix` agent variation.
 - `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality.
 - `doa_plot`: a plotter of the outputs of both the `soundloc` and the `doaoptimizer` agents.
 - `jack_control`: controls the start and end of the [`jackaudio`](https://jackaudio.org/) server.
@@ -61,9 +61,9 @@ sudo apt install terminator
 
 ## Installation
 
-1. Configure the `beamform_config.yaml` file of `beamformphase` so that it matches your microphone setup.
+1. Configure the `beamform_config.yaml` inside `beamformphase` so that it matches your microphone setup.
 
-2. Configure the `rosjack_config.yaml` file of `beamformphase` so that:
+2. Configure the `rosjack_config.yaml` inside `beamformphase` so that:
 
     - Its output is fed through a ROS2 topic: `output_type` should be either `0` or `2`.
     - Its sampling rate matches the one that `demucs` and `demucsmix` were trained with: `ros_output_sample_rate` should be `16000`.
@@ -93,21 +93,65 @@ You can change which agents are run by modifying `src/masacoord/config/masacoord
 
 ## Agents sets
 
-There are two possible sets of agents that work with each other and may not be compatible with others. It depends if the `demucs` or the `demucsmix` variation is used, since the former requires both the estimations of the source of interest and the interference. Thus, they must be accompanied with their respective `phase`/`phasemix` agent.
+For ease of comparison between different MASA configurations, the following launch files are included to launch the follwing sets of agents:
 
-To facilitate this pairing, two additional configuration files are provided, as well as their accompanying launch files. The two sets are:
-
-- **Mono** set:
-    - `phase`
+- **Linear** set: no frequency selection and no DOA correction is carried out.
+    - `beamformer`
     - `demucs`
+    - `jack_write`
+    - `soundloc`
+    - `doaoptimizer_dummy` (a dummy version of `doaoptimizer` that does not do any optimization, just transfers the output of `soundloc` to `beamformer`)
+    - `theta_plot`
+    - `doa_plot`
         - To launch:
         ```
-        ros2 launch masacoord masacoordmono.launch
+        ros2 launch masacoord Linear.launch
         ```
-- **Mix** set:
-    - `phasemix`
+- **FrequencySelection** set: frequency selection is carried out, but no DOA correction is carried out.
+    - `beamformer`
+    - `demucs`
+    - `jack_write`
+    - `soundloc`
+    - `doaoptimizer_dummy` (a dummy version of `doaoptimizer` that does not do any optimization, just transfers the output of `soundloc` to `beamformer`)
+    - `freqselect`
+    - `theta_plot`
+    - `doa_plot`
+        - To launch:
+        ```
+        ros2 launch masacoord FrequencySelection.launch
+        ```
+- **DOACorrection** set: both frequency selection and DOA correction are carried out.
+    - `beamformer`
+    - `demucs`
+    - `jack_write`
+    - `online_sqa`
+    - `soundloc`
+    - `doaoptimizer`
+    - `freqselect`
+    - `theta_plot`
+    - `doa_plot`
+    - `qual_plot`
+        - To launch:
+        ```
+        ros2 launch masacoord DOACorrection.launch
+        ```
+
+Furthremore, there are two sets of agents that work with each other and may not be compatible with others. It depends if the `demucs` or the `demucsmix` variation is used, since the former requires both the estimations of the source of interest and the interference. Thus, they must be accompanied with their respective `beamformer`/`beamformermix` and `jack_write`/`jack_writemix` agents.
+
+The **DOACorrection** set launches the agents that are compatible with the mono `demucs` variation. As for the `demucsmix` variation, the following set launches its compatible agents:
+
+- **DOACorrectionMix** set: both frequency selection and DOA correction are carried out.
+    - `beamformermix`
     - `demucsmix`
+    - `jack_writemix`
+    - `online_sqa`
+    - `soundloc`
+    - `doaoptimizer`
+    - `freqselect`
+    - `theta_plot`
+    - `doa_plot`
+    - `qual_plot`
         - To launch:
         ```
-        ros2 launch masacoord masacoordmix.launch
+        ros2 launch masacoord DOACorrectionMix.launch
         ```

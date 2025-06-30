@@ -27,7 +27,7 @@ class FrequencySelector(Node):
     this_share_directory = get_package_share_directory('freqselect')
     this_base_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(this_share_directory))))
     this_src_directory = os.path.join(this_base_directory,"src","freqselect")
-    self.modelpath = os.path.join(this_src_directory,"pretrained_model","knn_model_2s_power.pkl")
+    self.modelpath = os.path.join(this_src_directory,"pretrained_model","svc_filtro_flatten.pkl")
     self.get_logger().info("Using the following pretrained model: "+self.modelpath)
     self.model = joblib.load(self.modelpath)
     
@@ -53,7 +53,7 @@ class FrequencySelector(Node):
     self.model_thread.start()
   
   def calculate_mfcc(self, y, sr, buffer_size, n_mfcc=12):
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_fft=buffer_size, n_mfcc=n_mfcc, window='hann', hop_length=int(sr*.041)).mean(axis=1)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_fft=buffer_size, n_mfcc=n_mfcc, window='hann', hop_length=int(sr*.041))
     
     return mfcc
   
@@ -66,11 +66,10 @@ class FrequencySelector(Node):
       rms = np.sqrt(np.sum(np.power(self.buffer_pasado,2))/self.buffer_pasado.shape[0])
       
       if rms >= self.vad_threshold:
-        mfcc = self.calculate_mfcc(self.buffer_pasado, self.jackclient.samplerate, self.buffer_size)
-        #mfcc = self.calculate_mfcc(self.buffer_pasado*self.hann_win, self.jackclient.samplerate, self.buffer_size)
+        mfcc = self.calculate_mfcc(self.buffer_pasado*self.filt_win, self.jackclient.samplerate, self.buffer_size)
         #self.get_logger().info(f"{mfcc.shape = }, {type(mfcc) = }")
         
-        prediction = self.model.predict(mfcc.reshape(1,12))[0]
+        prediction = self.model.predict(mfcc.reshape(1,-1))[0]
         
         if prediction in self.classes:
           #t = input_i * self.time_between_predictions
@@ -86,8 +85,8 @@ class FrequencySelector(Node):
             #self.get_logger().info(f"FreqSelect: {prediction = } !published")
             self.get_logger().info(f"FreqSelect: {prediction = }")
             self.last_prediction = prediction
-          else:
-            self.get_logger().info(f"FreqSelect: {prediction = }")
+          #else:
+          #  self.get_logger().info(f"FreqSelect: {prediction = }")
         else:
           self.get_logger().info(f"FreqSelect: unknown class {prediction = }")
   
@@ -97,8 +96,12 @@ class FrequencySelector(Node):
     self.event = threading.Event()
     
     self.buffer_size = self.jackclient.blocksize
-    self.buffer_pasado = np.zeros((90*self.buffer_size))
-    self.hann_win = np.hanning(self.buffer_pasado.shape[0])
+    self.buffer_pasado = np.zeros((93*self.buffer_size))
+    #self.filt_win = np.hanning(self.buffer_pasado.shape[0])
+    self.filt_win = np.zeros(self.buffer_pasado.shape[0])
+    filt_end_len = int(self.filt_win.shape[0]/10)
+    self.filt_win[:filt_end_len] = np.linspace(0.0,1.0,num=filt_end_len)
+    self.filt_win[-filt_end_len:] = np.linspace(1.0,0.0,num=filt_end_len)
     self.get_logger().info(f"FreqSelect: using buffer of {self.buffer_pasado.shape[0]/self.jackclient.samplerate} s.")
     
     @self.jackclient.set_process_callback

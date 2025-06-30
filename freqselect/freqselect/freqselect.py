@@ -97,11 +97,13 @@ class FrequencySelector(Node):
     
     self.buffer_size = self.jackclient.blocksize
     self.buffer_pasado = np.zeros((93*self.buffer_size))
+    
     #self.filt_win = np.hanning(self.buffer_pasado.shape[0])
-    self.filt_win = np.zeros(self.buffer_pasado.shape[0])
+    self.filt_win = np.ones(self.buffer_pasado.shape[0])
     filt_end_len = int(self.filt_win.shape[0]/10)
     self.filt_win[:filt_end_len] = np.linspace(0.0,1.0,num=filt_end_len)
     self.filt_win[-filt_end_len:] = np.linspace(1.0,0.0,num=filt_end_len)
+    
     self.get_logger().info(f"FreqSelect: using buffer of {self.buffer_pasado.shape[0]/self.jackclient.samplerate} s.")
     
     @self.jackclient.set_process_callback

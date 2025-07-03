@@ -53,7 +53,7 @@ class FrequencySelector(Node):
     self.model_thread.start()
   
   def calculate_mfcc(self, y, sr, buffer_size, n_mfcc=12):
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_fft=buffer_size, n_mfcc=n_mfcc, window='hann', hop_length=int(sr*.041))
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_fft=buffer_size, n_mfcc=n_mfcc, window='hann', hop_length=int(sr*.041)).flatten()
     
     return mfcc
   
@@ -64,6 +64,7 @@ class FrequencySelector(Node):
       #input_i += 1
       
       rms = np.sqrt(np.sum(np.power(self.buffer_pasado,2))/self.buffer_pasado.shape[0])
+      #self.get_logger().info(f"FreqSelect: {rms = }")
       
       if rms >= self.vad_threshold:
         mfcc = self.calculate_mfcc(self.buffer_pasado*self.filt_win, self.jackclient.samplerate, self.buffer_size)
@@ -100,10 +101,11 @@ class FrequencySelector(Node):
     
     #self.filt_win = np.hanning(self.buffer_pasado.shape[0])
     self.filt_win = np.ones(self.buffer_pasado.shape[0])
-    filt_end_len = int(self.filt_win.shape[0]/10)
+    filt_end_len = int(self.jackclient.samplerate/4)
     self.filt_win[:filt_end_len] = np.linspace(0.0,1.0,num=filt_end_len)
     self.filt_win[-filt_end_len:] = np.linspace(1.0,0.0,num=filt_end_len)
     
+    self.get_logger().info(f"FreqSelect: using VAD threshold of {self.vad_threshold}")
     self.get_logger().info(f"FreqSelect: using buffer of {self.buffer_pasado.shape[0]/self.jackclient.samplerate} s.")
     
     @self.jackclient.set_process_callback
@@ -112,11 +114,11 @@ class FrequencySelector(Node):
       # assert len(client.inports) == len(client.outports)
       assert frames == self.buffer_size
       
-      if self.input.connections:
-        audio = self.input.get_array()
-        
-        self.buffer_pasado[:-self.buffer_size] = self.buffer_pasado[self.buffer_size:]
-        self.buffer_pasado[-self.buffer_size:] = audio
+      audio = self.input.get_array()
+      
+      self.buffer_pasado[:-self.buffer_size] = self.buffer_pasado[self.buffer_size:]
+      self.buffer_pasado[-self.buffer_size:] = audio
+      #self.get_logger().info(f"FreqSelect: got audio window of {audio.shape[0]} samples")
     
     @self.jackclient.set_shutdown_callback
     def shutdown(status, reason):

@@ -15,35 +15,62 @@ class DOAOptimizer(Node):
   def __init__(self):
     super().__init__('doaoptimizer')
     
+    self.declare_parameter('init_doa', 1000.0)
+    self.init_doa = self.get_parameter('init_doa').get_parameter_value().double_value
+    #print(f"DOAOpt: init_doa is {self.init_doa}")
     self.declare_parameter('eta', 0.30)
     self.eta = self.get_parameter('eta').get_parameter_value().double_value
     #print(f"DOAOpt: eta is {self.eta}")
-    self.declare_parameter('wait_for_sdr', 1.5)
-    self.wait_for_sdr = self.get_parameter('wait_for_sdr').get_parameter_value().double_value
-    self.declare_parameter('opt_correction', True)
-    self.opt_correction = self.get_parameter('opt_correction').get_parameter_value().bool_value
+    self.declare_parameter('wait_for_qual', 1.5)
+    self.wait_for_qual = self.get_parameter('wait_for_qual').get_parameter_value().double_value
+    self.declare_parameter('merge_doas', True)
+    self.merge_doas = self.get_parameter('merge_doas').get_parameter_value().bool_value
     
-    self.opt_correction = False
+    self.declare_parameter('quality_type', 'sdr')
+    self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
+    self.quality_max = None
+    if self.quality_type == 'sdr':
+      self.quality_max = 100.0
+    elif self.quality_type == 'stoi':
+      self.quality_max = 1.0
+    elif self.quality_type == 'pesq':
+      self.quality_max = 5.0
+    else:
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', or 'pesq'. Defaulting to 'sdr'.")
+      self.quality_type = 'sdr'
+      self.quality_max = 100.0
     
-    self.subscription_SDR = self.create_subscription(Float32,'/SDR',self.sdr_callback,1000)
-    self.subscription_SDR  # prevent unused variable warning
+    if self.quality_type == 'sdr':
+      self.subscription_qual = self.create_subscription(Float32,'/SDR',self.qual_callback,1000)
+    elif self.quality_type == 'stoi':
+      self.subscription_qual = self.create_subscription(Float32,'/STOI',self.qual_callback,1000)
+    elif self.quality_type == 'pesq':
+      self.subscription_qual = self.create_subscription(Float32,'/PESQ',self.qual_callback,1000)
+    self.subscription_qual  # prevent unused variable warning
+    
     self.subscription_theta_est = self.create_subscription(DOA,'/theta_est',self.theta_est_callback,1000)
     self.subscription_theta_est  # prevent unused variable warning
+    
     self.publisher = self.create_publisher(Float32, '/theta', 1000)
+    
+    self.opt_correction = False
     
     self.latest_curr_doa_hist_len = 5
     self.latest_curr_doa_hist = np.zeros(0)
     self.latest_theta_est_hist_len = 5
     self.latest_theta_est_hist = np.zeros(0)
-    self.latest_theta_est = None
+    if self.init_doa == 1000.0:
+      self.latest_theta_est = None
+    else:
+      self.latest_theta_est = self.init_doa
     self.latest_theta_est_time = None
     self.min_confidence = 4
     
     self.curr_doa = np.zeros(2)
     self.curr_doa[0] = self.latest_theta_est
     self.curr_doa[1] = 0.0 #this is really important so that Adam doesn't get stuck at the beginning
-    self.request_sdr = False
-    self.curr_sdr = np.zeros(2)
+    self.request_qual = False
+    self.curr_qual = np.zeros(2)
     
     self.bored_windows_max = 5
     self.bored_windows = 0
@@ -65,7 +92,7 @@ class DOAOptimizer(Node):
     self.past_win_wo_corr_max = 8
     
     self.best_doa = self.latest_theta_est
-    self.best_sdr = None
+    self.best_qual = None
     
     self.m_dw, self.v_dw = 0, 0
     self.beta1 = 0.9
@@ -78,7 +105,7 @@ class DOAOptimizer(Node):
     self.opt_thread.start()
   
   def objective(self, x):
-    return (100-x)
+    return (self.quality_max-x)
   
   def gradient(self,x,y):
     #coef = np.polyfit(x,y,1)
@@ -143,11 +170,11 @@ class DOAOptimizer(Node):
         self.add_theta_est()
         #print("--- "+str(self.latest_theta_est))
   
-  def sdr_callback(self, msg):
-    if self.request_sdr:
-      self.curr_sdr[1:] = self.curr_sdr[:-1]
-      self.curr_sdr[0] = self.objective(msg.data)
-      self.request_sdr = False
+  def qual_callback(self, msg):
+    if self.request_qual:
+      self.curr_qual[1:] = self.curr_qual[:-1]
+      self.curr_qual[0] = self.objective(msg.data)
+      self.request_qual = False
   
   def get_merged_doa(self):
     if (len(self.latest_theta_est_hist) < self.latest_theta_est_hist_len or len(self.latest_curr_doa_hist) < self.latest_curr_doa_hist_len):
@@ -204,24 +231,25 @@ class DOAOptimizer(Node):
     
     self.past_doa = np.zeros(self.past_doa_num)
     self.past_doa_calc = 0
-    self.best_sdr = None
+    self.best_qual = None
     
-    self.curr_sdr[0] = 0.0
-    self.curr_sdr[1] = 0.0
-    #self.curr_sdr[1] = self.curr_sdr[0]
+    self.curr_qual[0] = 0.0
+    self.curr_qual[1] = 0.0
+    #self.curr_qual[1] = self.curr_qual[0]
     
     self.past_win_wo_corr = 0
   
   def do_doaopt(self):
     t = 0
     
-    self.get_logger().info("Waiting for first DOA estimation from soundloc...")
-    while self.latest_theta_est == None:
-      time.sleep(0.001)
+    if self.latest_theta_est == None:
+      self.get_logger().info("Waiting for first DOA estimation from soundloc...")
+      while self.latest_theta_est == None:
+        time.sleep(0.001)
     
     self.get_logger().info("Starting DOA correction...")
     while True:
-      #this_str = "sdr: "+str(self.curr_sdr[0])+" ->"
+      #this_str = "qual: "+str(self.curr_qual[0])+" ->"
       #for i in range(len(self.past_doa)):
       #  this_str += " "+str(self.past_doa[i])
       #self.get_logger().info(this_str)
@@ -232,27 +260,31 @@ class DOAOptimizer(Node):
         self.past_doa_calc += 1
         
         if self.past_doa_calc >= self.past_doa_num:
-          if self.best_sdr == None:
-            self.best_sdr = self.curr_sdr[0]
+          if self.best_qual == None:
+            self.best_qual = self.curr_qual[0]
             self.best_doa = self.past_doa[-1]
-            print("sdr %f -> %f (first)" % (self.curr_sdr[0], self.past_doa[-1]))
-          elif self.curr_sdr[0] < self.best_sdr:
-            self.best_sdr = self.curr_sdr[0]
+            print("qual %f -> %f (first)" % (self.curr_qual[0], self.past_doa[-1]))
+          elif self.curr_qual[0] < self.best_qual:
+            self.best_qual = self.curr_qual[0]
             self.best_doa = self.past_doa[-1]
             self.past_win_wo_corr = 0
-            print("sdr %f -> %f (updated best)" % (self.curr_sdr[0], self.past_doa[-1]))
+            print("qual %f -> %f (updated best)" % (self.curr_qual[0], self.past_doa[-1]))
           else:
             self.past_win_wo_corr += 1
             if self.past_win_wo_corr >= self.past_win_wo_corr_max:
-              print("sdr %f -> %f (corrected)" % (self.best_sdr, self.best_doa))
+              print("qual %f -> %f (corrected)" % (self.best_qual, self.best_doa))
               self.reset_opt_correction(self.best_doa)
             else:
-              print("sdr %f -> %f" % (self.curr_sdr[0], self.past_doa[-1]))
+              print("qual %f -> %f" % (self.curr_qual[0], self.past_doa[-1]))
       else:
-        print("sdr %f -> %f" % (self.curr_sdr[0], self.past_doa[-1]))
+        print("qual %f -> %f" % (self.curr_qual[0], self.past_doa[-1]))
       
-      self.doa_to_publish = self.get_merged_doa()
-      print("doa_to_publis: "+str(self.doa_to_publish))
+      if self.merge_doas:
+        self.doa_to_publish = self.get_merged_doa()
+      else:
+        self.doa_to_publish = self.curr_doa[0]
+      
+      print("doa_to_publish: "+str(self.doa_to_publish))
       print("")
       
       msg = Float32()
@@ -260,15 +292,15 @@ class DOAOptimizer(Node):
       self.publisher.publish(msg)
       
       #print(f"DOAOpt: giving time for the system to react to new theta...")
-      time.sleep(self.wait_for_sdr)
+      time.sleep(self.wait_for_qual)
       
-      #print(f"DOAOpt: reading new SDR value...")
-      self.request_sdr = True
-      while self.request_sdr:
+      #print(f"DOAOpt: reading new qual value...")
+      self.request_qual = True
+      while self.request_qual:
         time.sleep(0.001)
       
       #print(f"DOAOpt: doing optimization...")
-      dw = self.gradient(self.curr_doa,self.curr_sdr)
+      dw = self.gradient(self.curr_doa,self.curr_qual)
       #print(f"DOAOpt: current gradient is {dw}")
       
       ## momentum beta 1

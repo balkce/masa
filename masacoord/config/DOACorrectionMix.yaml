@@ -6,6 +6,7 @@
         smooth_weight: 0.6 #0.9 for sdr, 0.65 for stoi
         quality_type: 'stoi' # can be: 'sdr', 'stoi, or 'pesq'
         wait_for_qual: 1.5
+        vad_threshold: 0.85
         max_time: 120.0
         merge_doas: True
         masa_order: [

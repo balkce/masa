@@ -57,6 +57,8 @@ class MASACoord(Node):
     self.eta = str(self.get_parameter('eta').get_parameter_value().double_value)
     self.declare_parameter('wait_for_qual', 1.5)
     self.wait_for_qual = str(self.get_parameter('wait_for_qual').get_parameter_value().double_value)
+    self.declare_parameter('vad_threshold', 0.85)
+    self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
     self.declare_parameter('max_time', 120.0)
     self.max_time = str(self.get_parameter('max_time').get_parameter_value().double_value)
     self.declare_parameter('smooth_weight', 0.9)
@@ -134,7 +136,7 @@ class MASACoord(Node):
       
       'online_sqa':
         {
-          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+'',
+          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+' -p vad_threshold:='+self.vad_threshold+'',
           'cmd_fi': None,
           'cmd_fu':
             [

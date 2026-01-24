@@ -229,6 +229,8 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
     return 1;
   }
   
+  int ros2jack_buffer_mult = 5;
+  
   if(ros_output_sample_rate != rosjack_sample_rate){
     RCLCPP_INFO(rosjack_node->get_logger(),"Creating the sample rate converter for ROS output...");
     int samplerate_error;
@@ -264,15 +266,15 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
     if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
       int data_out_size = rosjack_window_size*samplerate_data.src_ratio;
       
-      samplerate_circbuff_size = data_out_size*50;
+      samplerate_circbuff_size = data_out_size*ros2jack_buffer_mult;
       samplerate_data.data_out = (float *)malloc(data_out_size*sizeof(float));
       samplerate_data.output_frames = data_out_size;
     }else if (rosjack_type == ROSJACK_READ){
-      samplerate_circbuff_size = rosjack_window_size*50;
+      samplerate_circbuff_size = rosjack_window_size*ros2jack_buffer_mult;
       samplerate_data.data_out = (float *)malloc(rosjack_window_size*sizeof(float));
       samplerate_data.output_frames = rosjack_window_size;
     }else{
-      samplerate_circbuff_size = rosjack_window_size*50;
+      samplerate_circbuff_size = rosjack_window_size*ros2jack_buffer_mult;
       samplerate_data.data_out = (float *)malloc(rosjack_window_size*sizeof(float));
       samplerate_data.output_frames = rosjack_window_size;
       samplerate_data_int.data_out = (float *)malloc(rosjack_window_size*sizeof(float));
@@ -322,7 +324,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
   }
   
   if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
-    ros2jack_buffer_size = jack_get_buffer_size (jack_client)*50;
+    ros2jack_buffer_size = jack_get_buffer_size (jack_client)*ros2jack_buffer_mult;
     ros2jack_buffer = (rosjack_data *)malloc(sizeof(rosjack_data)*ros2jack_buffer_size);
     RCLCPP_INFO(rosjack_node->get_logger(),"ROSJACK Buffer size: %d", ros2jack_buffer_size);
   }

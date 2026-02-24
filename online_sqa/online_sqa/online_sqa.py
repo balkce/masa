@@ -165,20 +165,20 @@ class OnlineSQA(Node):
       
       win_clone = self.win.to(self.device)
       
-      start_time = time.time()
+      #start_time = time.time()
       stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
-      exec_time = time.time() - start_time
-      self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+      #exec_time = time.time() - start_time
+      #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
       
-      start_time = time.time()
+      #start_time = time.time()
       scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
-      exec_time = time.time() - start_time
-      self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
+      #exec_time = time.time() - start_time
+      #self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
       
-      start_time = time.time()
+      #start_time = time.time()
       audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
-      exec_time = time.time() - start_time
-      self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
+      #exec_time = time.time() - start_time
+      #self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
       
       # SDR publishing
       unfiltered_observation = si_sdr_hyp.item()

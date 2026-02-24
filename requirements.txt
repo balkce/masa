@@ -8,4 +8,6 @@ wavfile
 matplotlib
 JACK-client
 audiobox_aesthetics
+onnx
+onnxruntime-gpu
 

@@ -50,7 +50,7 @@ class OnlineSQA(Node):
     self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
     
     self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
-    self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr')
+    self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
     self.audbox_model = initialize_predictor()
     
     self.samplerate = 16000
@@ -164,9 +164,21 @@ class OnlineSQA(Node):
         time.sleep(0.001)
       
       win_clone = self.win.to(self.device)
+      
+      start_time = time.time()
       stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+      exec_time = time.time() - start_time
+      self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+      
+      start_time = time.time()
       scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
+      exec_time = time.time() - start_time
+      self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
+      
+      start_time = time.time()
       audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
+      exec_time = time.time() - start_time
+      self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
       
       # SDR publishing
       unfiltered_observation = si_sdr_hyp.item()

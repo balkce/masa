@@ -271,7 +271,7 @@ class Scoreq():
             
         return score
 
-    def _predict_data_pytorch(self, test_path, ref_wave_raw=None):
+    def _predict_data_pytorch(self, test_wave_raw, ref_wave_raw=None):
         """Prediction using the original PyTorch model."""
         test_wave_padded = dynamic_pad(test_wave_raw).to(self.device)
         

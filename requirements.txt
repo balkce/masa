@@ -3,8 +3,9 @@ torchaudio
 julius
 pykalman
 numpy
-scipy
+scikit-learn==1.3.2
 wavfile
 matplotlib
 JACK-client
+audiobox_aesthetics
 

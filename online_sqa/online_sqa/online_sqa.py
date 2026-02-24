@@ -8,6 +8,8 @@ import math
 import time
 import torch
 from torchaudio.pipelines import SQUIM_OBJECTIVE
+from .submodules import scoreq
+from audiobox_aesthetics.infer import initialize_predictor
 import numpy as np
 
 from threading import Thread
@@ -35,6 +37,8 @@ class OnlineSQA(Node):
     self.sdr_publisher = self.create_publisher(Float32, '/SDR', 1000)
     self.stoi_publisher = self.create_publisher(Float32, '/STOI', 1000)
     self.pesq_publisher = self.create_publisher(Float32, '/PESQ', 1000)
+    self.scoreq_publisher = self.create_publisher(Float32, '/SCOREQ', 1000)
+    self.audbox_publisher = self.create_publisher(Float32, '/AUDBOX', 1000)
     
     self.declare_parameter('hop_secs', 1.5)
     self.hop_secs = self.get_parameter('hop_secs').get_parameter_value().double_value
@@ -46,6 +50,8 @@ class OnlineSQA(Node):
     self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
     
     self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
+    self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr')
+    self.audbox_model = initialize_predictor()
     
     self.samplerate = 16000
     self.vad_hop_len = 512 #Silvero-VAD only permits chunks of 512 at samplerate = 16000
@@ -83,6 +89,8 @@ class OnlineSQA(Node):
     self.smooth_val_sdr = None
     self.smooth_val_stoi = None
     self.smooth_val_pesq = None
+    self.smooth_val_scoreq = None
+    self.smooth_val_audbox = None
   
     self.vad, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad', model='silero_vad', trust_repo=True)
     self.vad_confs = torch.zeros(self.vad_num_hops)
@@ -124,6 +132,10 @@ class OnlineSQA(Node):
       smooth_val = self.smooth_val_stoi
     elif data_type == 'pesq':
       smooth_val = self.smooth_val_pesq
+    elif data_type == 'scoreq':
+      smooth_val = self.smooth_val_scoreq
+    elif data_type == 'audbox':
+      smooth_val = self.smooth_val_audbox
     else:
       print("smooth: Invalid data_type value ("+str(data_type)+"). Can only be 'sdr', 'stoi', or 'pesq'.")
       return None
@@ -139,6 +151,10 @@ class OnlineSQA(Node):
       self.smooth_val_stoi = this_smooth_val
     elif data_type == 'pesq':
       self.smooth_val_pesq = this_smooth_val
+    elif data_type == 'scoreq':
+      self.smooth_val_scoreq = this_smooth_val
+    elif data_type == 'audbox':
+      self.smooth_val_audbox = this_smooth_val
     
     return this_smooth_val
 
@@ -149,6 +165,8 @@ class OnlineSQA(Node):
       
       win_clone = self.win.to(self.device)
       stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+      scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
+      audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
       
       # SDR publishing
       unfiltered_observation = si_sdr_hyp.item()
@@ -179,6 +197,26 @@ class OnlineSQA(Node):
       msg = Float32()
       msg.data = filtered_observation_smooth
       self.pesq_publisher.publish(msg)
+      
+      # SCOREQ publishing
+      unfiltered_observation = scoreq_hyp
+      if math.isnan(unfiltered_observation):
+        unfiltered_observation = 0.0
+      filtered_observation_smooth = self.smooth(unfiltered_observation,'scoreq')
+      self.get_logger().info('SCOREQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+      msg = Float32()
+      msg.data = filtered_observation_smooth
+      self.scoreq_publisher.publish(msg)
+      
+      # AUDBOX publishing
+      unfiltered_observation = 10-audbox_hyp[0]["PC"] # 'CE', 'CU', 'PC', 'PQ'
+      if math.isnan(unfiltered_observation):
+        unfiltered_observation = 0.0
+      filtered_observation_smooth = self.smooth(unfiltered_observation,'audbox')
+      self.get_logger().info('AUDBOX: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+      msg = Float32()
+      msg.data = filtered_observation_smooth
+      self.audbox_publisher.publish(msg)
       
       self.sqa_ready = False
 

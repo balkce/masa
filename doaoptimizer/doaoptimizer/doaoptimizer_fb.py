@@ -35,8 +35,12 @@ class DOAOptimizer(Node):
       self.quality_max = 1.0
     elif self.quality_type == 'pesq':
       self.quality_max = 5.0
+    elif self.quality_type == 'scoreq':
+      self.quality_max = 5.0
+    elif self.quality_type == 'audbox':
+      self.quality_max = 10.0
     else:
-      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', or 'pesq'. Defaulting to 'sdr'.")
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', 'pesq', 'scoreq', or 'audbox'. Defaulting to 'sdr'.")
       self.quality_type = 'sdr'
       self.quality_max = 100.0
     
@@ -46,6 +50,10 @@ class DOAOptimizer(Node):
       self.subscription_qual = self.create_subscription(Float32,'/STOI',self.qual_callback,1000)
     elif self.quality_type == 'pesq':
       self.subscription_qual = self.create_subscription(Float32,'/PESQ',self.qual_callback,1000)
+    elif self.quality_type == 'scoreq':
+      self.subscription_qual = self.create_subscription(Float32,'/SCOREQ',self.qual_callback,1000)
+    elif self.quality_type == 'audbox':
+      self.subscription_qual = self.create_subscription(Float32,'/AUDBOX',self.qual_callback,1000)
     self.subscription_qual  # prevent unused variable warning
     
     self.subscription_theta_est = self.create_subscription(DOA,'/theta_est',self.theta_est_callback,1000)

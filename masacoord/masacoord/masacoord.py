@@ -67,8 +67,8 @@ class MASACoord(Node):
     self.merge_doas = str(self.get_parameter('merge_doas').get_parameter_value().bool_value)
     self.declare_parameter('quality_type', 'sdr')
     self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
-    if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq':
-      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', or 'pesq'. Defaulting to 'stoi'.")
+    if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq' and self.quality_type != 'scoreq' and self.quality_type != 'audbox':
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', 'pesq', 'scoreq' or 'audbox'. Defaulting to 'stoi'.")
       self.quality_type = 'stoi'
     
     self.masa_nodes ={

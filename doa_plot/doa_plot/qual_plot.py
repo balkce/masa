@@ -40,6 +40,10 @@ class QualPlot(Node):
     self.stoi_subscription  # prevent unused variable warning
     self.pesq_subscription = self.create_subscription(Float32,'/PESQ',self.pesq_callback,10)
     self.pesq_subscription  # prevent unused variable warning
+    self.scoreq_subscription = self.create_subscription(Float32,'/SCOREQ',self.scoreq_callback,10)
+    self.scoreq_subscription  # prevent unused variable warning
+    self.audbox_subscription = self.create_subscription(Float32,'/AUDBOX',self.audbox_callback,10)
+    self.audbox_subscription  # prevent unused variable warning
     
     self.get_logger().info("Plotting quality history...")
     self.get_logger().info("max. time: %0.2f" % self.max)
@@ -62,11 +66,25 @@ class QualPlot(Node):
     self.twin_stoi.tick_params(axis='y', colors=self.ln_stoi.get_color())
     
     self.twin_pesq = self.ax.twinx()
-    self.twin_pesq.spines.right.set_position(("axes", 1.2))
+    self.twin_pesq.spines.right.set_position(("axes", 1.1))
     (self.ln_pesq,) = self.twin_pesq.plot([0.0], [0.0], "C2", linestyle='-', marker='.', markersize=5, animated=True, label="PESQ")
     self.twin_pesq.set_ylim(0.0,5.0)
     self.twin_pesq.yaxis.label.set_color(self.ln_pesq.get_color())
     self.twin_pesq.tick_params(axis='y', colors=self.ln_pesq.get_color())
+    
+    self.twin_scoreq = self.ax.twinx()
+    self.twin_scoreq.spines.right.set_position(("axes", 1.2))
+    (self.ln_scoreq,) = self.twin_scoreq.plot([0.0], [0.0], "C3", linestyle='-', marker='.', markersize=5, animated=True, label="SCOREQ")
+    self.twin_scoreq.set_ylim(0.0,5.0)
+    self.twin_scoreq.yaxis.label.set_color(self.ln_scoreq.get_color())
+    self.twin_scoreq.tick_params(axis='y', colors=self.ln_scoreq.get_color())
+    
+    self.twin_audbox = self.ax.twinx()
+    self.twin_audbox.spines.right.set_position(("axes", 1.3))
+    (self.ln_audbox,) = self.twin_audbox.plot([0.0], [0.0], "C4", linestyle='-', marker='.', markersize=5, animated=True, label="AUDBOX")
+    self.twin_audbox.set_ylim(0.0,10.0)
+    self.twin_audbox.yaxis.label.set_color(self.ln_audbox.get_color())
+    self.twin_audbox.tick_params(axis='y', colors=self.ln_audbox.get_color())
     
     self.fig.legend()
     self.ax.grid(True)
@@ -77,6 +95,8 @@ class QualPlot(Node):
     self.ax.draw_artist(self.ln_sdr)
     self.ax.draw_artist(self.ln_stoi)
     self.ax.draw_artist(self.ln_pesq)
+    self.ax.draw_artist(self.ln_scoreq)
+    self.ax.draw_artist(self.ln_audbox)
     self.fig.canvas.blit(self.fig.bbox)
     
     self.sdr_hist = []
@@ -85,10 +105,16 @@ class QualPlot(Node):
     self.stoi_t = []
     self.pesq_hist = []
     self.pesq_t = []
+    self.scoreq_hist = []
+    self.scoreq_t = []
+    self.audbox_hist = []
+    self.audbox_t = []
     
     self.sdr_updated = False
     self.stoi_updated = False
     self.pesq_updated = False
+    self.scoreq_updated = False
+    self.audbox_updated = False
   
   def refresh_plot(self):
     self.fig.canvas.restore_region(self.bg)
@@ -105,12 +131,22 @@ class QualPlot(Node):
     self.ln_pesq.set_ydata(self.pesq_hist)
     self.ax.draw_artist(self.ln_pesq)
     
+    self.ln_scoreq.set_xdata(self.scoreq_t)
+    self.ln_scoreq.set_ydata(self.scoreq_hist)
+    self.ax.draw_artist(self.ln_scoreq)
+    
+    self.ln_audbox.set_xdata(self.audbox_t)
+    self.ln_audbox.set_ydata(self.audbox_hist)
+    self.ax.draw_artist(self.ln_audbox)
+    
     self.fig.canvas.blit(self.fig.bbox)
     self.fig.canvas.flush_events()
     
     self.sdr_updated = False
     self.stoi_updated = False
     self.pesq_updated = False
+    self.scoreq_updated = False
+    self.audbox_updated = False
   
   def sdr_callback(self,msg):
     if len(self.sdr_t) == 0:
@@ -122,7 +158,7 @@ class QualPlot(Node):
     
     self.sdr_updated = True
     
-    if self.sdr_updated and self.stoi_updated and self.pesq_updated:
+    if self.sdr_updated and self.stoi_updated and self.pesq_updated and self.scoreq_updated and self.audbox_updated:
       self.refresh_plot()
   
   def stoi_callback(self,msg):
@@ -135,7 +171,7 @@ class QualPlot(Node):
     
     self.stoi_updated = True
     
-    if self.sdr_updated and self.stoi_updated and self.pesq_updated:
+    if self.sdr_updated and self.stoi_updated and self.pesq_updated and self.scoreq_updated and self.audbox_updated:
       self.refresh_plot()
   
   def pesq_callback(self,msg):
@@ -148,7 +184,33 @@ class QualPlot(Node):
     
     self.pesq_updated = True
     
-    if self.sdr_updated and self.stoi_updated and self.pesq_updated:
+    if self.sdr_updated and self.stoi_updated and self.pesq_updated and self.scoreq_updated and self.audbox_updated:
+      self.refresh_plot()
+  
+  def scoreq_callback(self,msg):
+    if len(self.scoreq_t) == 0:
+      self.scoreq_hist.append(msg.data)
+      self.scoreq_t.append(0.0)
+    else:
+      self.scoreq_hist.append(msg.data)
+      self.scoreq_t.append(self.scoreq_t[-1]+self.wait_for_qual)
+    
+    self.scoreq_updated = True
+    
+    if self.sdr_updated and self.stoi_updated and self.pesq_updated and self.scoreq_updated and self.audbox_updated:
+      self.refresh_plot()
+  
+  def audbox_callback(self,msg):
+    if len(self.audbox_t) == 0:
+      self.audbox_hist.append(msg.data)
+      self.audbox_t.append(0.0)
+    else:
+      self.audbox_hist.append(msg.data)
+      self.audbox_t.append(self.audbox_t[-1]+self.wait_for_qual)
+    
+    self.audbox_updated = True
+    
+    if self.sdr_updated and self.stoi_updated and self.pesq_updated and self.scoreq_updated and self.audbox_updated:
       self.refresh_plot()
 
 def main(args=None):

@@ -34,12 +34,6 @@ class OnlineSQA(Node):
     #self.subscription = self.create_subscription(JackAudio,'/jackaudio',self.jackaudio_callback,1000)
     self.subscription  # prevent unused variable warning
     
-    self.sdr_publisher = self.create_publisher(Float32, '/SDR', 1000)
-    self.stoi_publisher = self.create_publisher(Float32, '/STOI', 1000)
-    self.pesq_publisher = self.create_publisher(Float32, '/PESQ', 1000)
-    self.scoreq_publisher = self.create_publisher(Float32, '/SCOREQ', 1000)
-    self.audbox_publisher = self.create_publisher(Float32, '/AUDBOX', 1000)
-    
     self.declare_parameter('hop_secs', 1.5)
     self.hop_secs = self.get_parameter('hop_secs').get_parameter_value().double_value
     self.declare_parameter('win_len_secs', 3.0)
@@ -48,10 +42,42 @@ class OnlineSQA(Node):
     self.smooth_weight = self.get_parameter('smooth_weight').get_parameter_value().double_value
     self.declare_parameter('vad_threshold', 0.85)
     self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
+    self.declare_parameter('quality_type', 'sdr')
+    self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
+    if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq' and self.quality_type != 'scoreq' and self.quality_type != 'audbox':
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', 'pesq', 'scoreq' or 'audbox'. Defaulting to 'stoi'.")
+      self.quality_type = 'stoi'
+    self.declare_parameter('qual_report', 'single')
+    self.qual_report = self.get_parameter('qual_report').get_parameter_value().string_value
+    if self.qual_report != 'single' and self.qual_report != 'all':
+      print("invalid qual_report value ("+str(self.qual_report)+"). Can only be 'all' or 'single'. Defaulting to 'single'.")
+      self.qual_report = 'single'
     
-    self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
-    self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
-    self.audbox_model = initialize_predictor()
+    if self.qual_report == 'single' and self.quality_type == 'sdr':
+      self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
+      self.sdr_publisher = self.create_publisher(Float32, '/SDR', 1000)
+    elif self.qual_report == 'single' and self.quality_type == 'stoi':
+      self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
+      self.stoi_publisher = self.create_publisher(Float32, '/STOI', 1000)
+    elif self.qual_report == 'single' and self.quality_type == 'pesq':
+      self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
+      self.pesq_publisher = self.create_publisher(Float32, '/PESQ', 1000)
+    elif self.qual_report == 'single' and self.quality_type == 'scoreq':
+      self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
+      self.scoreq_publisher = self.create_publisher(Float32, '/SCOREQ', 1000)
+    elif self.qual_report == 'single' and self.quality_type == 'audbox':
+      self.audbox_model = initialize_predictor()
+      self.audbox_publisher = self.create_publisher(Float32, '/AUDBOX', 1000)
+    elif self.qual_report == 'all':
+      self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
+      self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
+      self.audbox_model = initialize_predictor()
+      self.sdr_publisher = self.create_publisher(Float32, '/SDR', 1000)
+      self.stoi_publisher = self.create_publisher(Float32, '/STOI', 1000)
+      self.pesq_publisher = self.create_publisher(Float32, '/PESQ', 1000)
+      self.scoreq_publisher = self.create_publisher(Float32, '/SCOREQ', 1000)
+      self.audbox_publisher = self.create_publisher(Float32, '/AUDBOX', 1000)
+    
     
     self.samplerate = 16000
     self.vad_hop_len = 512 #Silvero-VAD only permits chunks of 512 at samplerate = 16000
@@ -80,6 +106,10 @@ class OnlineSQA(Node):
     self.get_logger().info('window length  : %f (%d samples)' % (self.win_len_secs, self.win_len))
     self.get_logger().info('hop length     : %f (%d samples, %d hops in window)' % (self.hop_secs, self.hop_len, self.num_hops))
     self.get_logger().info('VAD hop length : %f (%d samples, %d hops in window, %d in hop length)' % (self.vad_hop_secs, self.vad_hop_len, self.vad_num_hops, self.vad_num_hops_in_num_hops))
+    if self.qual_report == 'single':
+      self.get_logger().info('quality metric : %s' % self.quality_type)
+    else:
+      self.get_logger().info('quality metric : ALL')
     
     self.sqa_ready = False
     self.sqa_ready_ref = False
@@ -137,7 +167,7 @@ class OnlineSQA(Node):
     elif data_type == 'audbox':
       smooth_val = self.smooth_val_audbox
     else:
-      print("smooth: Invalid data_type value ("+str(data_type)+"). Can only be 'sdr', 'stoi', or 'pesq'.")
+      print("smooth: Invalid data_type value ("+str(data_type)+"). Can only be 'sdr', 'stoi, 'pesq', 'scoreq', or 'audbox'.")
       return None
     
     if smooth_val == None:
@@ -165,70 +195,151 @@ class OnlineSQA(Node):
       
       win_clone = self.win.to(self.device)
       
-      #start_time = time.time()
-      stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
-      #exec_time = time.time() - start_time
-      #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
-      
-      #start_time = time.time()
-      scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
-      #exec_time = time.time() - start_time
-      #self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
-      
-      #start_time = time.time()
-      audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
-      #exec_time = time.time() - start_time
-      #self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
-      
-      # SDR publishing
-      unfiltered_observation = si_sdr_hyp.item()
-      if math.isnan(unfiltered_observation):
-        unfiltered_observation = 0.0
-      filtered_observation_smooth = self.smooth(unfiltered_observation,'sdr')
-      self.get_logger().info('SDR:  %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
-      msg = Float32()
-      msg.data = filtered_observation_smooth
-      self.sdr_publisher.publish(msg)
-      
-      # STOI publishing
-      unfiltered_observation = stoi_hyp.item()
-      if math.isnan(unfiltered_observation):
-        unfiltered_observation = 0.0
-      filtered_observation_smooth = self.smooth(unfiltered_observation,'stoi')
-      self.get_logger().info('STOI: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
-      msg = Float32()
-      msg.data = filtered_observation_smooth
-      self.stoi_publisher.publish(msg)
-      
-      # PESQ publishing
-      unfiltered_observation = pesq_hyp.item()
-      if math.isnan(unfiltered_observation):
-        unfiltered_observation = 0.0
-      filtered_observation_smooth = self.smooth(unfiltered_observation,'pesq')
-      self.get_logger().info('PESQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
-      msg = Float32()
-      msg.data = filtered_observation_smooth
-      self.pesq_publisher.publish(msg)
-      
-      # SCOREQ publishing
-      unfiltered_observation = scoreq_hyp
-      if math.isnan(unfiltered_observation):
-        unfiltered_observation = 0.0
-      filtered_observation_smooth = self.smooth(unfiltered_observation,'scoreq')
-      self.get_logger().info('SCOREQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
-      msg = Float32()
-      msg.data = filtered_observation_smooth
-      self.scoreq_publisher.publish(msg)
-      
-      # AUDBOX publishing
-      unfiltered_observation = 10-audbox_hyp[0]["PC"] # 'CE', 'CU', 'PC', 'PQ'
-      if math.isnan(unfiltered_observation):
-        unfiltered_observation = 0.0
-      filtered_observation_smooth = self.smooth(unfiltered_observation,'audbox')
-      self.get_logger().info('AUDBOX: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
-      msg = Float32()
-      msg.data = filtered_observation_smooth
-      self.audbox_publisher.publish(msg)
+      if self.qual_report == 'single' and self.quality_type == 'sdr':
+        #start_time = time.time()
+        stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+        
+        # SDR publishing
+        unfiltered_observation = si_sdr_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'sdr')
+        self.get_logger().info('SDR:  %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.sdr_publisher.publish(msg)
+        
+      elif self.qual_report == 'single' and self.quality_type == 'stoi':
+        #start_time = time.time()
+        stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+        
+        # STOI publishing
+        unfiltered_observation = stoi_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'stoi')
+        self.get_logger().info('STOI: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.stoi_publisher.publish(msg)
+        
+      elif self.qual_report == 'single' and self.quality_type == 'pesq':
+        #start_time = time.time()
+        stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+        
+        # PESQ publishing
+        unfiltered_observation = pesq_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'pesq')
+        self.get_logger().info('PESQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.pesq_publisher.publish(msg)
+        
+      elif self.qual_report == 'single' and self.quality_type == 'scoreq':
+        #start_time = time.time()
+        scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
+        
+        # SCOREQ publishing
+        unfiltered_observation = scoreq_hyp
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'scoreq')
+        self.get_logger().info('SCOREQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.scoreq_publisher.publish(msg)
+        
+      elif self.qual_report == 'single' and self.quality_type == 'audbox':
+        #start_time = time.time()
+        audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
+        
+        # AUDBOX publishing
+        unfiltered_observation = 10-audbox_hyp[0]["PC"] # 'CE', 'CU', 'PC', 'PQ'
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'audbox')
+        self.get_logger().info('AUDBOX: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.audbox_publisher.publish(msg)
+        
+      elif self.qual_report == 'all':
+        #start_time = time.time()
+        stoi_hyp, pesq_hyp, si_sdr_hyp = self.objective_model(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0))
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SQUIM rt   : %f secs' % (exec_time))
+        
+        #start_time = time.time()
+        scoreq_hyp = self.scoreq_model.predict_data(win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), ref_wave_raw=None)
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('SCOREQ rt  : %f secs' % (exec_time))
+        
+        #start_time = time.time()
+        audbox_hyp = self.audbox_model.forward([{"path":win_clone[0,self.win_qual_start:self.win_qual_end].unsqueeze(0), "sample_rate":self.samplerate}])
+        #exec_time = time.time() - start_time
+        #self.get_logger().info('AUDIOBOX rt: %f secs' % (exec_time))
+        
+        # SDR publishing
+        unfiltered_observation = si_sdr_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'sdr')
+        self.get_logger().info('SDR:  %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.sdr_publisher.publish(msg)
+        
+        # STOI publishing
+        unfiltered_observation = stoi_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'stoi')
+        self.get_logger().info('STOI: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.stoi_publisher.publish(msg)
+        
+        # PESQ publishing
+        unfiltered_observation = pesq_hyp.item()
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'pesq')
+        self.get_logger().info('PESQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.pesq_publisher.publish(msg)
+        
+        # SCOREQ publishing
+        unfiltered_observation = scoreq_hyp
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'scoreq')
+        self.get_logger().info('SCOREQ: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.scoreq_publisher.publish(msg)
+        
+        # AUDBOX publishing
+        unfiltered_observation = 10-audbox_hyp[0]["PC"] # 'CE', 'CU', 'PC', 'PQ'
+        if math.isnan(unfiltered_observation):
+          unfiltered_observation = 0.0
+        filtered_observation_smooth = self.smooth(unfiltered_observation,'audbox')
+        self.get_logger().info('AUDBOX: %0.4f, smooth: %0.4f' % (unfiltered_observation,filtered_observation_smooth))
+        msg = Float32()
+        msg.data = filtered_observation_smooth
+        self.audbox_publisher.publish(msg)
       
       self.sqa_ready = False
 

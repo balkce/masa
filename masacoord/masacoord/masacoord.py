@@ -136,7 +136,7 @@ class MASACoord(Node):
       
       'online_sqa':
         {
-          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+' -p vad_threshold:='+self.vad_threshold+'',
+          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+' -p vad_threshold:='+self.vad_threshold+' -p quality_type:='+self.quality_type+' -p qual_report:='+self.qual_report+'',
           'cmd_fi': None,
           'cmd_fu':
             [
@@ -206,7 +206,7 @@ class MASACoord(Node):
       
       'qual_plot':
         {
-          'cmd': 'ros2 run doa_plot qual_plot',
+          'cmd': 'ros2 run doa_plot qual_plot --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p quality_type:='+self.quality_type+' -p qual_report:='+self.qual_report+'',
           'cmd_fi':None,
           'cmd_fu':None
         },

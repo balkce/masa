@@ -6,6 +6,7 @@
         smooth_weight: 0.65 #0.9 for sdr, 0.65 for stoi, 0.9 for scoreq
         quality_type: 'stoi' # can be: 'sdr', 'stoi, 'pesq', 'scoreq', or 'audbox'
         wait_for_qual: 1.5
+        qual_report: 'single' # can be: 'all' or 'single'
         vad_threshold: 0.85
         max_time: 120.0
         merge_doas: True

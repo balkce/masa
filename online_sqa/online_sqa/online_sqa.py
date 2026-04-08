@@ -7,22 +7,9 @@ from jack_msgs.msg import JackAudio
 import math
 import time
 import torch
-from torchaudio.pipelines import SQUIM_OBJECTIVE
-from .submodules import scoreq
-from audiobox_aesthetics.infer import initialize_predictor
 import numpy as np
 
 from threading import Thread
-
-class OptScale(torch.nn.Module):
-  def __init__(self, device):
-    super(OptScale, self).__init__()
-    init_scaling_factor = torch.zeros(1, device=device)
-    self.scaling_factor = torch.nn.Parameter(init_scaling_factor, requires_grad=True)
-
-  def forward(self, x):
-    output = self.scaling_factor * x
-    return output
 
 class OnlineSQA(Node):
   def __init__(self):
@@ -54,21 +41,30 @@ class OnlineSQA(Node):
       self.qual_report = 'single'
     
     if self.qual_report == 'single' and self.quality_type == 'sdr':
+      from torchaudio.pipelines import SQUIM_OBJECTIVE
       self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
       self.sdr_publisher = self.create_publisher(Float32, '/SDR', 1000)
     elif self.qual_report == 'single' and self.quality_type == 'stoi':
+      from torchaudio.pipelines import SQUIM_OBJECTIVE
       self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
       self.stoi_publisher = self.create_publisher(Float32, '/STOI', 1000)
     elif self.qual_report == 'single' and self.quality_type == 'pesq':
+      from torchaudio.pipelines import SQUIM_OBJECTIVE
       self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
       self.pesq_publisher = self.create_publisher(Float32, '/PESQ', 1000)
     elif self.qual_report == 'single' and self.quality_type == 'scoreq':
+      from .submodules import scoreq
       self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
       self.scoreq_publisher = self.create_publisher(Float32, '/SCOREQ', 1000)
     elif self.qual_report == 'single' and self.quality_type == 'audbox':
+      from audiobox_aesthetics.infer import initialize_predictor
       self.audbox_model = initialize_predictor()
       self.audbox_publisher = self.create_publisher(Float32, '/AUDBOX', 1000)
     elif self.qual_report == 'all':
+      from torchaudio.pipelines import SQUIM_OBJECTIVE
+      from .submodules import scoreq
+      from audiobox_aesthetics.infer import initialize_predictor
+      
       self.objective_model = SQUIM_OBJECTIVE.get_model().to(self.device)
       self.scoreq_model = scoreq.Scoreq(data_domain='natural', mode='nr', use_onnx=False)
       self.audbox_model = initialize_predictor()

@@ -64,6 +64,8 @@ class MASACoord(Node):
     self.declare_parameter('smooth_weight', 0.9)
     self.smooth_weight = str(self.get_parameter('smooth_weight').get_parameter_value().double_value)
     self.declare_parameter('merge_doas', True)
+    self.declare_parameter('opt_correction', False)
+    self.opt_correction = str(self.get_parameter('opt_correction').get_parameter_value().bool_value)
     self.merge_doas = str(self.get_parameter('merge_doas').get_parameter_value().bool_value)
     self.declare_parameter('quality_type', 'sdr')
     self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
@@ -159,7 +161,7 @@ class MASACoord(Node):
       
       'doaoptimizer':
         {
-          'cmd': 'ros2 run doaoptimizer doaoptimizer_fb  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p eta:='+self.eta+' -p quality_type:='+self.quality_type+' -p merge_doas:='+self.merge_doas+'',
+          'cmd': 'ros2 run doaoptimizer doaoptimizer_fb  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p eta:='+self.eta+' -p quality_type:='+self.quality_type+' -p opt_correction:='+self.opt_correction+' -p merge_doas:='+self.merge_doas+'',
           'cmd_fi':
             [
               ['sleep','1']
@@ -190,9 +192,7 @@ class MASACoord(Node):
       
       'theta_plot':
         {
-          #'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+'',
-          'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+' -p terminal_output:=True 2>&1 | tee theta_hist.txt',
-          #'cmd': 'ros2 run doa_plot theta_plot',
+          'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+'',
           'cmd_fi': None,
           'cmd_fu': None
         },

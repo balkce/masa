@@ -68,14 +68,28 @@ install(
   INCLUDES DESTINATION include
 )
 
-rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-add_executable(soundloc_multi src/soundloc_multi.cpp)
-ament_target_dependencies(soundloc_multi rclcpp std_srvs std_msgs)
-target_link_libraries(soundloc_multi
-  multisoundloc
-  ${GLIB2_LIBRARIES}
-  ${cpp_typesupport_target}
-)
+
+if(COMMAND rosidl_get_typesupport_target)
+  # Humble or later
+  rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  add_executable(soundloc_multi src/soundloc_multi.cpp)
+  ament_target_dependencies(soundloc_multi rclcpp std_srvs std_msgs)
+  target_link_libraries(soundloc_multi
+    multisoundloc
+    ${GLIB2_LIBRARIES}
+    ${cpp_typesupport_target}
+  )
+else()
+  # Foxy and older
+  add_executable(soundloc_multi src/soundloc_multi.cpp)
+  ament_target_dependencies(soundloc_multi rclcpp std_srvs std_msgs)
+  target_link_libraries(soundloc_multi
+    multisoundloc
+    ${GLIB2_LIBRARIES}
+  )
+  rosidl_target_interfaces(soundloc_multi ${PROJECT_NAME} "rosidl_typesupport_cpp")
+endif()
+
 
 install(TARGETS soundloc_multi
   DESTINATION lib/${PROJECT_NAME}

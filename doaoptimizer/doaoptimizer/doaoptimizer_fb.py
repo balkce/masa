@@ -61,7 +61,9 @@ class DOAOptimizer(Node):
     
     self.publisher = self.create_publisher(Float32, '/theta', 1000)
     
-    self.opt_correction = False
+    self.declare_parameter('opt_correction', False)
+    self.opt_correction = self.get_parameter('opt_correction').get_parameter_value().bool_value
+    #self.opt_correction = False
     
     self.latest_curr_doa_hist_len = 5
     self.latest_curr_doa_hist = np.zeros(0)
@@ -93,7 +95,7 @@ class DOAOptimizer(Node):
     self.min_eta = 0.01
     self.max_doavar = 5
     
-    self.past_doa_num = 6
+    self.past_doa_num = 2 #6
     self.past_doa = np.zeros(self.past_doa_num)
     self.past_doa_calc = 0
     self.past_win_wo_corr = 0
@@ -106,8 +108,6 @@ class DOAOptimizer(Node):
     self.beta1 = 0.9
     self.beta2 = 0.999
     self.epsilon = 1e-8
-    
-    self.past_doas_reset = np.zeros(self.past_doa_num)
     
     self.opt_thread = Thread(target=self.do_doaopt)
     self.opt_thread.start()
@@ -232,7 +232,7 @@ class DOAOptimizer(Node):
         
         return doa_publish
   
-  def reset_opt_correction(self, doa):
+  def reset_opt_correction(self, doa, qual):
     self.curr_doa[0] = doa
     self.curr_doa[1] = 0.0
     self.add_curr_doa()
@@ -243,7 +243,8 @@ class DOAOptimizer(Node):
     
     self.curr_qual[0] = 0.0
     self.curr_qual[1] = 0.0
-    #self.curr_qual[1] = self.curr_qual[0]
+    
+    self.m_dw, self.v_dw = 0, 0
     
     self.past_win_wo_corr = 0
   
@@ -267,7 +268,7 @@ class DOAOptimizer(Node):
       if self.opt_correction:
         self.past_doa_calc += 1
         
-        if self.past_doa_calc >= self.past_doa_num:
+        if self.past_doa_calc >= self.past_win_wo_corr_max: #self.past_doa_num:
           if self.best_qual == None:
             self.best_qual = self.curr_qual[0]
             self.best_doa = self.past_doa[-1]
@@ -281,7 +282,7 @@ class DOAOptimizer(Node):
             self.past_win_wo_corr += 1
             if self.past_win_wo_corr >= self.past_win_wo_corr_max:
               print("qual %f -> %f (corrected)" % (self.best_qual, self.best_doa))
-              self.reset_opt_correction(self.best_doa)
+              self.reset_opt_correction(self.best_doa,self.best_qual)
             else:
               print("qual %f -> %f" % (self.curr_qual[0], self.past_doa[-1]))
       else:
@@ -300,7 +301,7 @@ class DOAOptimizer(Node):
       self.publisher.publish(msg)
       
       #print(f"DOAOpt: giving time for the system to react to new theta...")
-      time.sleep(self.wait_for_qual)
+      #time.sleep(self.wait_for_qual)
       
       #print(f"DOAOpt: reading new qual value...")
       self.request_qual = True

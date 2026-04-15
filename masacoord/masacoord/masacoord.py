@@ -206,7 +206,7 @@ class MASACoord(Node):
       
       'qual_plot':
         {
-          'cmd': 'ros2 run doa_plot qual_plot --ros-args -p quality_type:='+self.quality_type+' -p qual_report:='+self.qual_report+'',
+          'cmd': 'ros2 run doa_plot qual_plot --ros-args -p max_time:='+self.max_time+' -p quality_type:='+self.quality_type+' -p qual_report:='+self.qual_report+'',
           'cmd_fi':None,
           'cmd_fu':None
         },

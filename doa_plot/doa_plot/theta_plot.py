@@ -7,6 +7,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+import time
+
 def move_figure(f, x, y):
     """Move figure's upper left corner to pixel (x, y)"""
     backend = matplotlib.get_backend()
@@ -25,8 +27,6 @@ class ThetaPlot(Node):
     
     self.declare_parameter('max_time', 0.0)
     self.max_time = self.get_parameter('max_time').get_parameter_value().double_value
-    self.declare_parameter('wait_for_qual', 1.5)
-    self.wait_for_qual = self.get_parameter('wait_for_qual').get_parameter_value().double_value
     self.declare_parameter('terminal_output', False)
     self.terminal_output = self.get_parameter('terminal_output').get_parameter_value().bool_value
     
@@ -62,7 +62,6 @@ class ThetaPlot(Node):
     if self.max_time > 0.0:
       self.get_logger().info("Plotting theta history...")
       self.get_logger().info("max. time: %0.2f" % self.max_time)
-      self.get_logger().info("time hop : %0.2f" % self.wait_for_qual)
       
       self.fig_time, self.ax_time = plt.subplots(num='DOAOptimizer History')
       #self.fig_time.canvas.manager.window.move(1280,0)
@@ -81,6 +80,8 @@ class ThetaPlot(Node):
       
       self.theta_hist = []
       self.t = []
+    
+    self.initime = None
   
   def theta_callback(self,msg):
     if self.terminal_output:
@@ -97,9 +98,10 @@ class ThetaPlot(Node):
       if len(self.t) == 0:
         self.theta_hist.append(msg.data)
         self.t.append(0.0)
+        self.initime = time.time()
       else:
         self.theta_hist.append(msg.data)
-        self.t.append(self.t[-1]+self.wait_for_qual)
+        self.t.append(time.time() - self.initime)
       
       #print(self.theta_hist)
       #print(self.t)

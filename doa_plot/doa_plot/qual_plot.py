@@ -26,13 +26,11 @@ class QualPlot(Node):
   def __init__(self):
     super().__init__('qualplot')
     
-    self.declare_parameter('max', 120.0)
-    self.max = self.get_parameter('max').get_parameter_value().double_value
-    if self.max <= 0.0:
-      print("max needs to be greater than 0.0. Defaulting to: 120.0")
-      self.max = 120.0
-    self.declare_parameter('wait_for_qual', 1.5)
-    self.wait_for_qual = self.get_parameter('wait_for_qual').get_parameter_value().double_value
+    self.declare_parameter('max_time', 120.0)
+    self.max_time = self.get_parameter('max_time').get_parameter_value().double_value
+    if self.max_time <= 0.0:
+      print("max_time needs to be greater than 0.0. Defaulting to: 120.0")
+      self.max_time = 120.0
     self.declare_parameter('quality_type', 'sdr')
     self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
     if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq' and self.quality_type != 'scoreq' and self.quality_type != 'audbox':
@@ -72,8 +70,7 @@ class QualPlot(Node):
       self.audbox_subscription  # prevent unused variable warning
     
     self.get_logger().info("Plotting quality history...")
-    self.get_logger().info("max. time: %0.2f" % self.max)
-    self.get_logger().info("time hop : %0.2f" % self.wait_for_qual)
+    self.get_logger().info("max. time: %0.2f" % self.max_time)
     
     if self.qual_report == 'single':
       self.fig, self.ax = plt.subplots(num=self.quality_type+' History')
@@ -81,7 +78,7 @@ class QualPlot(Node):
       move_figure(self.fig,1280,600)
       
       (self.ln_qual,) = self.ax.plot([0.0], [0.0], "C0", linestyle='-', marker='.', markersize=5, animated=True)
-      self.ax.set_xlim(-0.1,self.max+0.1)
+      self.ax.set_xlim(-0.1,self.max_time+0.1)
       if self.quality_type == 'sdr':
         self.ax.set_ylim(0.0,25.0)
       elif self.quality_type == 'stoi':
@@ -111,7 +108,7 @@ class QualPlot(Node):
       move_figure(self.fig,1280,600)
       
       (self.ln_sdr,) = self.ax.plot([0.0], [0.0], "C0", linestyle='-', marker='.', markersize=5, animated=True, label="SDR")
-      self.ax.set_xlim(-0.1,self.max+0.1)
+      self.ax.set_xlim(-0.1,self.max_time+0.1)
       self.ax.set_ylim(0.0,25.0)
       self.ax.yaxis.label.set_color(self.ln_sdr.get_color())
       self.ax.tick_params(axis='y', colors=self.ln_sdr.get_color())
@@ -172,6 +169,8 @@ class QualPlot(Node):
       self.pesq_updated = False
       self.scoreq_updated = False
       self.audbox_updated = False
+    
+    self.initime = None
   
   def refresh_plot(self):
     self.fig.canvas.restore_region(self.bg)
@@ -219,17 +218,19 @@ class QualPlot(Node):
       if len(self.qual_t) == 0:
         self.qual_hist.append(msg.data)
         self.qual_t.append(0.0)
+        self.initime = time.time()
       else:
         self.qual_hist.append(msg.data)
-        self.qual_t.append(self.qual_t[-1]+self.wait_for_qual)
+        self.qual_t.append(time.time() - self.initime)
       self.refresh_plot()
     else:
       if len(self.sdr_t) == 0:
         self.sdr_hist.append(msg.data)
         self.sdr_t.append(0.0)
+        self.initime = time.time()
       else:
         self.sdr_hist.append(msg.data)
-        self.sdr_t.append(self.sdr_t[-1]+self.wait_for_qual)
+        self.sdr_t.append(time.time() - self.initime)
       
       self.sdr_updated = True
       
@@ -241,17 +242,19 @@ class QualPlot(Node):
       if len(self.qual_t) == 0:
         self.qual_hist.append(msg.data)
         self.qual_t.append(0.0)
+        self.initime = time.time()
       else:
         self.qual_hist.append(msg.data)
-        self.qual_t.append(self.qual_t[-1]+self.wait_for_qual)
+        self.qual_t.append(time.time() - self.initime)
       self.refresh_plot()
     else:
       if len(self.stoi_t) == 0:
         self.stoi_hist.append(msg.data)
         self.stoi_t.append(0.0)
+        self.initime = time.time()
       else:
         self.stoi_hist.append(msg.data)
-        self.stoi_t.append(self.stoi_t[-1]+self.wait_for_qual)
+        self.stoi_t.append(time.time() - self.initime)
       
       self.stoi_updated = True
       
@@ -263,17 +266,19 @@ class QualPlot(Node):
       if len(self.qual_t) == 0:
         self.qual_hist.append(msg.data)
         self.qual_t.append(0.0)
+        self.initime = time.time()
       else:
         self.qual_hist.append(msg.data)
-        self.qual_t.append(self.qual_t[-1]+self.wait_for_qual)
+        self.qual_t.append(time.time() - self.initime)
       self.refresh_plot()
     else:
       if len(self.pesq_t) == 0:
         self.pesq_hist.append(msg.data)
         self.pesq_t.append(0.0)
+        self.initime = time.time()
       else:
         self.pesq_hist.append(msg.data)
-        self.pesq_t.append(self.pesq_t[-1]+self.wait_for_qual)
+        self.pesq_t.append(time.time() - self.initime)
       
       self.pesq_updated = True
       
@@ -285,17 +290,19 @@ class QualPlot(Node):
       if len(self.qual_t) == 0:
         self.qual_hist.append(msg.data)
         self.qual_t.append(0.0)
+        self.initime = time.time()
       else:
         self.qual_hist.append(msg.data)
-        self.qual_t.append(self.qual_t[-1]+self.wait_for_qual)
+        self.qual_t.append(time.time() - self.initime)
       self.refresh_plot()
     else:
       if len(self.scoreq_t) == 0:
         self.scoreq_hist.append(msg.data)
         self.scoreq_t.append(0.0)
+        self.initime = time.time()
       else:
         self.scoreq_hist.append(msg.data)
-        self.scoreq_t.append(self.scoreq_t[-1]+self.wait_for_qual)
+        self.scoreq_t.append(time.time() - self.initime)
       
       self.scoreq_updated = True
       
@@ -307,17 +314,19 @@ class QualPlot(Node):
       if len(self.qual_t) == 0:
         self.qual_hist.append(msg.data)
         self.qual_t.append(0.0)
+        self.initime = time.time()
       else:
         self.qual_hist.append(msg.data)
-        self.qual_t.append(self.qual_t[-1]+self.wait_for_qual)
+        self.qual_t.append(time.time() - self.initime)
       self.refresh_plot()
     else:
       if len(self.audbox_t) == 0:
         self.audbox_hist.append(msg.data)
         self.audbox_t.append(0.0)
+        self.initime = time.time()
       else:
         self.audbox_hist.append(msg.data)
-        self.audbox_t.append(self.audbox_t[-1]+self.wait_for_qual)
+        self.audbox_t.append(time.time() - self.initime)
       
       self.audbox_updated = True
       

@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'online_sqa = online_sqa.online_sqa:main',
+            'online_sqa_brute = online_sqa.online_sqa_brute:main',
         ],
     },
 )

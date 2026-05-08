@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'doaoptimizer = doaoptimizer.doaoptimizer:main',
+            'doaoptimizer_brute = doaoptimizer.doaoptimizer_brute:main',
             'doaoptimizer_dummy = doaoptimizer.doaoptimizer_dummy:main',
         ],
     },

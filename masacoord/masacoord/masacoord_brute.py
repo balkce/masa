@@ -55,20 +55,30 @@ class MASACoord(Node):
     self.init_doa = str(self.get_parameter('init_doa').get_parameter_value().double_value)
     self.declare_parameter('ref_doa', 0.0)
     self.ref_doa = str(self.get_parameter('ref_doa').get_parameter_value().double_value)
-    self.declare_parameter('eta', 0.3)
-    self.eta = str(self.get_parameter('eta').get_parameter_value().double_value)
+    
+    self.declare_parameter('reqrange_ini', 7.5)
+    self.reqrange_ini = str(self.get_parameter('reqrange_ini').get_parameter_value().double_value)
+    self.declare_parameter('reqrange_fin', 0.75)
+    self.reqrange_fin = str(self.get_parameter('reqrange_fin').get_parameter_value().double_value)
+    self.declare_parameter('reqsteps', 5)
+    self.reqsteps = str(self.get_parameter('reqsteps').get_parameter_value().integer_value)
+    
+    self.declare_parameter('maxiter', 0)
+    self.maxiter = str(self.get_parameter('maxiter').get_parameter_value().integer_value)
     self.declare_parameter('wait_for_qual', 1.5)
     self.wait_for_qual = str(self.get_parameter('wait_for_qual').get_parameter_value().double_value)
-    self.declare_parameter('vad_threshold', 0.85)
-    self.vad_threshold = self.get_parameter('vad_threshold').get_parameter_value().double_value
+    self.declare_parameter('win_len_secs', 3.0)
+    self.win_len_secs = str(self.get_parameter('win_len_secs').get_parameter_value().double_value)
+    self.declare_parameter('audio_to_eval', 'pre')
+    self.audio_to_eval = self.get_parameter('audio_to_eval').get_parameter_value().string_value
     self.declare_parameter('max_time', 120.0)
     self.max_time = str(self.get_parameter('max_time').get_parameter_value().double_value)
-    self.declare_parameter('smooth_weight', 0.9)
-    self.smooth_weight = str(self.get_parameter('smooth_weight').get_parameter_value().double_value)
+    self.declare_parameter('smooth_weight_doaoptimizer', 0.9)
+    self.smooth_weight_doaoptimizer = str(self.get_parameter('smooth_weight_doaoptimizer').get_parameter_value().double_value)
     self.declare_parameter('merge_doas', True)
+    self.merge_doas = str(self.get_parameter('merge_doas').get_parameter_value().bool_value)
     self.declare_parameter('opt_correction', False)
     self.opt_correction = str(self.get_parameter('opt_correction').get_parameter_value().bool_value)
-    self.merge_doas = str(self.get_parameter('merge_doas').get_parameter_value().bool_value)
     self.declare_parameter('quality_type', 'sdr')
     self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
     if self.quality_type != 'sdr' and self.quality_type != 'stoi' and self.quality_type != 'pesq' and self.quality_type != 'scoreq' and self.quality_type != 'audbox':
@@ -79,6 +89,11 @@ class MASACoord(Node):
     if self.qual_report != 'single' and self.qual_report != 'all':
       print("invalid qual_report value ("+str(self.qual_report)+"). Can only be 'all' or 'single'. Defaulting to 'single'.")
       self.qual_report = 'single'
+    self.declare_parameter('beamformtype', 'phase')
+    self.beamformtype = self.get_parameter('beamformtype').get_parameter_value().string_value
+    if self.beamformtype != 'phase' and self.beamformtype != 'mvdr':
+      self.get_logger().info("invalid beamformtype value ("+str(self.beamformtype)+"). Can only be 'phase' or 'mvdr'. Defaulting to 'phase'.")
+      self.beamformtype = 'phase'
     
     self.masa_nodes ={
       'jackd':
@@ -97,7 +112,7 @@ class MASACoord(Node):
           'cmd_fi': None,
           'cmd_fu':
             [
-              ['sleep','2'],
+              ['sleep','1'],
               ['jack_disconnect','beamformphase:output','system:playback_1']
             ]
         },
@@ -108,7 +123,7 @@ class MASACoord(Node):
           'cmd_fi': None,
           'cmd_fu':
             [
-              ['sleep','2'],
+              ['sleep','1'],
               ['jack_disconnect','beamformphase:output','system:playback_1']
             ]
         },
@@ -145,11 +160,14 @@ class MASACoord(Node):
       
       'online_sqa':
         {
-          'cmd': 'ros2 run online_sqa online_sqa --ros-args -p hop_secs:='+self.wait_for_qual+' -p smooth_weight:='+self.smooth_weight+' -p vad_threshold:='+self.vad_threshold+' -p quality_type:='+self.quality_type+' -p qual_report:='+self.qual_report+'',
+          'cmd': 'ros2 run online_sqa online_sqa_brute --ros-args -p win_len_secs:='+self.win_len_secs+' -p audio_to_eval:='+self.audio_to_eval+' -p init_doa:='+self.init_doa+' -p quality_type:='+self.quality_type+' -p beamformtype:='+self.beamformtype+'',
           'cmd_fi': None,
           'cmd_fu':
             [
-              ['sleep','1']
+              ['sleep','3'],
+              ['jack_connect','system:capture_1','online_sqa:input_1'],
+              ['jack_connect','system:capture_2','online_sqa:input_2'],
+              ['jack_connect','system:capture_3','online_sqa:input_3'],
             ]
         },
       
@@ -160,15 +178,15 @@ class MASACoord(Node):
           'cmd_fu':
             [
               ['sleep','2'],
-              ['jack_connect','system:capture_1','soundloc:input_1'],
-              ['jack_connect','system:capture_2','soundloc:input_2'],
-              ['jack_connect','system:capture_3','soundloc:input_3']
+              ['jack_connect','system:out_1','soundloc:input_1'],
+              ['jack_connect','system:out_2','soundloc:input_2'],
+              ['jack_connect','system:out_3','soundloc:input_3']
             ]
         },
       
       'doaoptimizer':
         {
-          'cmd': 'ros2 run doaoptimizer doaoptimizer_fb  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p eta:='+self.eta+' -p quality_type:='+self.quality_type+' -p opt_correction:='+self.opt_correction+' -p merge_doas:='+self.merge_doas+'',
+          'cmd': 'ros2 run doaoptimizer doaoptimizer_brute  --ros-args -p wait_for_qual:='+self.wait_for_qual+' -p reqrange_ini:='+self.reqrange_ini+' -p reqrange_fin:='+self.reqrange_fin+' -p reqsteps:='+self.reqsteps+' -p maxiter:='+self.maxiter+' -p smooth_weight:='+self.smooth_weight_doaoptimizer+' -p quality_type:='+self.quality_type+' -p opt_correction:='+self.opt_correction+' -p merge_doas:='+self.merge_doas+' -p init_doa:='+self.init_doa+'',
           'cmd_fi':
             [
               ['sleep','1']

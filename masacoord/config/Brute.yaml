@@ -1,0 +1,30 @@
+/masacoord:
+    ros__parameters:
+        input_length: 0.512
+        init_doa: 15.0
+        ref_doa: 0.0
+        reqrange_ini: 15.0 # 10.0 for phase, 15.0 for mvdr
+        reqrange_fin: 15.0 # 10.0 for phase, 15.0 for mvdr
+        maxiter: 50
+        reqsteps: 5 #must be odd, 5 is a good balance between speed and robustness
+        smooth_weight_doaoptimizer: 0.0
+        quality_type: 'stoi' # 'sdr', 'stoi, 'pesq', 'scoreq', or 'audbox'
+        wait_for_qual: 0.25 # some latency is good to avoid redundant quality estimations
+        win_len_secs: 3.0
+        audio_to_eval: 'pre' # 'pre' or 'post'; DONT USE post, too slow and fills up VRAM
+        beamformtype: 'mvdr' # 'phase' (use with quality_type:pesq) or 'mvdr' (use with quality_type:stoi)
+        max_time: 60.0 #120.0
+        merge_doas: True
+        opt_correction: False
+        masa_order: [
+          'beamformer',
+          'demucs',
+          'jack_write',
+          'theta_plot',
+          'online_sqa',
+          'soundloc',
+          'doaoptimizer',
+          'freqselect',
+          'doa_plot',
+        ]
+

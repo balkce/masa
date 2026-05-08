@@ -1,0 +1,394 @@
+import rclpy
+from rclpy.node import Node
+import yaml
+
+from std_msgs.msg import Float32
+from soundloc.msg import DOA
+from jack_msgs.srv import BruteTheta
+
+import os
+import sys
+import time
+import numpy as np
+from scipy.signal import detrend
+
+from threading import Thread
+
+from ament_index_python.packages import get_package_share_directory
+
+class DOAOptimizer(Node):
+  def __init__(self):
+    super().__init__('doaoptimizer')
+    
+    self.declare_parameter('init_doa', 1000.0)
+    self.init_doa = self.get_parameter('init_doa').get_parameter_value().double_value
+    #print(f"DOAOpt: init_doa is {self.init_doa}")
+    self.declare_parameter('maxiter', 0)
+    self.maxiter = self.get_parameter('maxiter').get_parameter_value().integer_value
+    self.declare_parameter('wait_for_qual', 1.5)
+    self.wait_for_qual = self.get_parameter('wait_for_qual').get_parameter_value().double_value
+    self.declare_parameter('merge_doas', True)
+    self.merge_doas = self.get_parameter('merge_doas').get_parameter_value().bool_value
+    self.declare_parameter('smooth_weight', 0.9)
+    self.smoothopt_weight = self.get_parameter('smooth_weight').get_parameter_value().double_value
+    self.smoothcurr_weight = 0.0
+    
+    self.declare_parameter('reqrange_ini', 7.5)
+    self.reqrange_ini = self.get_parameter('reqrange_ini').get_parameter_value().double_value
+    self.declare_parameter('reqrange_fin', 0.75)
+    self.reqrange_fin = self.get_parameter('reqrange_fin').get_parameter_value().double_value
+    self.declare_parameter('reqsteps', 4)
+    self.reqsteps = self.get_parameter('reqsteps').get_parameter_value().integer_value
+    if self.reqsteps % 2 == 0:
+      print("invalid reqsteps value ("+str(self.reqsteps)+"). Must be odd. Defaulting to "+str(self.reqsteps+1)+".")
+      self.reqsteps = self.reqsteps + 1
+    
+    self.declare_parameter('quality_type', 'sdr')
+    self.quality_type = self.get_parameter('quality_type').get_parameter_value().string_value
+    self.quality_max = None
+    if self.quality_type == 'sdr':
+      self.quality_max = 100.0
+    elif self.quality_type == 'stoi':
+      self.quality_max = 1.0
+    elif self.quality_type == 'pesq':
+      self.quality_max = 5.0
+    elif self.quality_type == 'scoreq':
+      self.quality_max = 5.0
+    elif self.quality_type == 'audbox':
+      self.quality_max = 10.0
+    else:
+      print("invalid quality_type value ("+str(self.quality_type)+"). Can only be 'sdr', 'stoi', 'pesq', 'scoreq', or 'audbox'. Defaulting to 'sdr'.")
+      self.quality_type = 'sdr'
+      self.quality_max = 100.0
+    
+    self.subscription_theta_est = self.create_subscription(DOA,'/theta_est',self.theta_est_callback,0)
+    self.subscription_theta_est  # prevent unused variable warning
+    
+    self.publisher = self.create_publisher(Float32, '/theta', 0)
+    
+    self.declare_parameter('opt_correction', False)
+    self.opt_correction = self.get_parameter('opt_correction').get_parameter_value().bool_value
+    #self.opt_correction = False
+    
+    self.get_logger().info('opt_correction : '+str(self.opt_correction))
+    self.get_logger().info('merge_doas     : '+str(self.merge_doas))
+    self.get_logger().info('quality_type   : '+self.quality_type)
+    self.get_logger().info('reqrange_ini   : '+str(self.reqrange_ini))
+    self.get_logger().info('reqrange_fin   : '+str(self.reqrange_fin))
+    self.get_logger().info('reqsteps       : '+str(self.reqsteps))
+    
+    self.latest_curr_doa_hist_len = 5
+    self.latest_curr_doa_hist = np.zeros(0)
+    self.latest_theta_est_hist_len = 5
+    self.latest_theta_est_hist = np.zeros(0)
+    self.latest_qual_hist_len = 5
+    self.latest_qual_hist = np.zeros(0)
+    if self.init_doa == 1000.0:
+      self.latest_theta_est = None
+    else:
+      self.latest_theta_est = self.init_doa
+    self.latest_theta_est_time = None
+    self.min_confidence = 4
+    
+    self.smooth_val = None
+    
+    self.curr_doa = self.latest_theta_est
+    self.curr_qual = 0.0
+    
+    self.bored_windows_max = 5
+    self.bored_windows = 0
+    self.bored_theta_est_var_max = 6.0
+    self.bored_curr_doa_var_max = 0.7
+    
+    self.std_weights_curr_doa = 1/(1 + np.exp(-(np.arange(self.latest_curr_doa_hist_len)-(self.latest_curr_doa_hist_len/2))))
+    self.std_weights_theta_est = 1/(1 + np.exp(-(np.arange(self.latest_theta_est_hist_len)-(self.latest_theta_est_hist_len/2))))
+    self.doa_to_publish = self.latest_theta_est
+    
+    self.past_doa_calc = 0
+    self.past_win_wo_corr = 0
+    self.past_win_wo_corr_max = int(5.0 / (self.wait_for_qual + 0.0000001))
+    
+    self.best_doa = self.latest_theta_est
+    self.best_qual = None
+    
+    self.cli = self.create_client(BruteTheta, 'brutetheta')
+    while not self.cli.wait_for_service(timeout_sec=1.0):
+      self.get_logger().info('BruteTheta service not available, waiting again...')
+    self.optreq = BruteTheta.Request()
+    
+    self.opt_thread = Thread(target=self.do_doaopt)
+    self.opt_thread.start()
+  
+  def add_curr_doa(self):
+    if len(self.latest_curr_doa_hist) < self.latest_curr_doa_hist_len:
+      self.latest_curr_doa_hist = np.append(self.latest_curr_doa_hist,[self.curr_doa])
+    else:
+      self.latest_curr_doa_hist[:-1] = self.latest_curr_doa_hist[1:]
+      self.latest_curr_doa_hist[-1] = self.curr_doa
+  
+  def add_theta_est(self):
+    if len(self.latest_theta_est_hist) < self.latest_theta_est_hist_len:
+      self.latest_theta_est_hist = np.append(self.latest_theta_est_hist,[self.latest_theta_est])
+    else:
+      self.latest_theta_est_hist[:-1] = self.latest_theta_est_hist[1:]
+      self.latest_theta_est_hist[-1] = self.latest_theta_est
+  
+  def add_curr_qual(self):
+    if len(self.latest_qual_hist) < self.latest_qual_hist_len:
+      self.latest_qual_hist = np.append(self.latest_qual_hist,[self.curr_qual])
+    else:
+      self.latest_qual_hist[:-1] = self.latest_qual_hist[1:]
+      self.latest_qual_hist[-1] = self.curr_qual
+  
+  def theta_est_callback(self, msg):
+    #print(msg.doas)
+    #print(msg.confs)
+    
+    if self.latest_theta_est == None:
+      #use the one with the highest confidence
+      highest_conf = 0.0
+      highest_conf_i = 0
+      for i in range(len(msg.confs)):
+        if msg.confs[i] > highest_conf:
+          highest_conf = msg.confs[i]
+          highest_conf_i = i
+      
+      highest_conf_doa = msg.doas[highest_conf_i]
+      
+      if abs(highest_conf_doa) < 60:
+        #prefer a DOA that is in front of the array
+        self.latest_theta_est = highest_conf_doa
+        self.latest_theta_est_time = time.time()
+        self.add_theta_est()
+        
+        self.curr_doa = self.latest_theta_est
+        self.add_curr_doa()
+        
+        self.doa_to_publish = self.latest_theta_est
+    
+    else:
+      #use the one nearest to self.curr_doa
+      nearest_doa = 0.0
+      nearest_doa_i = 0
+      nearest_doa_dist = sys.float_info.max
+      for i in range(len(msg.doas)):
+        this_dist = abs(msg.doas[i] - self.curr_doa)
+        if this_dist < nearest_doa_dist:
+          nearest_doa = msg.doas[i]
+          nearest_doa_i = i
+          nearest_doa_dist = this_dist
+      
+      #use it only if it is actually close and has good confidence
+      if nearest_doa_dist < 15 and msg.confs[nearest_doa_i] >= self.min_confidence:
+        self.latest_theta_est = nearest_doa
+        self.add_theta_est()
+        #print("--- "+str(self.latest_theta_est))
+  
+  def update_curr_qual(self, qual):
+    if qual == -1000.0:
+      self.curr_qual = qual
+    else:
+      if self.curr_qual == -1000.0:
+        self.curr_qual = qual
+        self.curr_doa = self.init_doa
+      else:
+        self.curr_qual = qual
+  
+  def get_merged_doa(self):
+    if (len(self.latest_theta_est_hist) < self.latest_theta_est_hist_len or len(self.latest_curr_doa_hist) < self.latest_curr_doa_hist_len):
+      print("not enough history, publishing curr_doa")
+      return self.latest_curr_doa_hist[-1]
+    else:
+      
+      # get curr_doa stability (weighted std from detrended history)
+      #latest_curr_doa_hist_detrend = detrend(self.latest_curr_doa_hist, type='linear')
+      #curr_doa_var = np.sqrt(np.cov(latest_curr_doa_hist_detrend, aweights=self.std_weights_curr_doa))
+      #print("curr_doa_var    : "+str(curr_doa_var))
+      curr_doa_var_simple = np.std(self.latest_curr_doa_hist,ddof=1)
+      print("curr_doa_var_sim: "+str(curr_doa_var_simple)+" <> "+str(self.bored_curr_doa_var_max))
+      
+      # get theta_est stability (weighted std from detrended history)
+      latest_theta_est_hist_detrend = detrend(self.latest_theta_est_hist, type='linear')
+      theta_est_var = np.sqrt(np.cov(latest_theta_est_hist_detrend, aweights=self.std_weights_theta_est))
+      print("theta_est_var   : "+str(theta_est_var)+" <> "+str(self.bored_theta_est_var_max))
+      
+      if self.bored_windows >= self.bored_windows_max:
+        if theta_est_var > self.bored_theta_est_var_max:
+          self.bored_windows = 0
+          print("EXCITED, starting to use theta_est")
+          if self.opt_correction:
+            self.opt_correction = False
+        else:
+          print("bored, keep using just curr_doa")
+          if not self.opt_correction:
+            self.reset_opt_correction(self.latest_curr_doa_hist[-1])
+            self.opt_correction = True
+        return self.latest_curr_doa_hist[-1]
+      else:
+        theta_est_weight = np.arctan(curr_doa_var_simple/theta_est_var)/(np.pi/2)
+        
+        print("curr_doa     :"+str(self.latest_curr_doa_hist[-1]))
+        print("theta_est    :"+str(np.mean(self.latest_theta_est_hist)))
+        doa_publish = (theta_est_weight*np.mean(self.latest_theta_est_hist)) + ((1-theta_est_weight)*self.latest_curr_doa_hist[-1])
+        
+        self.curr_doa = doa_publish
+        self.latest_curr_doa_hist[-1] = self.curr_doa
+        
+        if curr_doa_var_simple > self.bored_curr_doa_var_max:
+          self.bored_windows = 0
+        else:
+          self.bored_windows += 1
+          print("   bored_win : "+str(self.bored_windows)+"/"+str(self.bored_windows_max))
+        
+        return doa_publish
+  
+  def reset_opt_correction(self, doa, qual):
+    self.curr_doa = doa
+    self.add_curr_doa()
+    
+    self.past_doa_calc = 0
+    self.best_qual = None
+    
+    self.curr_qual = 0.0
+    
+    self.m_dw, self.v_dw = None, None
+    self.it = 1
+    
+    self.past_win_wo_corr = 0
+  
+  def smooth(self,data_point):
+    if self.smooth_val == None:
+      this_smooth_val = data_point
+    else:
+      this_smooth_val = self.smooth_val * self.smoothcurr_weight + (1 - self.smoothcurr_weight) * data_point
+    
+    self.smooth_val = this_smooth_val
+    
+    return this_smooth_val
+  
+  def do_doaopt(self):
+    t = 0
+    
+    if self.latest_theta_est == None:
+      self.get_logger().info("Waiting for first DOA estimation from soundloc...")
+      while self.latest_theta_est == None:
+        time.sleep(0.001)
+    
+    self.it = 0
+    m_dw_c, v_dw_c = 0, 0
+    
+    self.curr_opttheta = None
+    
+    self.get_logger().info("Starting DOA correction...")
+    while True:
+      if self.opt_correction:
+        self.past_doa_calc += 1
+        
+        if self.past_doa_calc >= self.past_win_wo_corr_max:
+          if self.best_qual == None:
+            self.best_qual = self.curr_qual
+            self.best_doa = self.doa_to_publish
+            self.get_logger().info("qual %f -> %f (first)" % (self.best_qual, self.best_doa))
+          elif self.curr_qual > self.best_qual:
+            self.best_qual = self.curr_qual
+            self.best_doa = self.doa_to_publish
+            self.past_win_wo_corr = 0
+            self.get_logger().info("qual %f -> %f (updated best)" % (self.best_qual, self.best_doa))
+          else:
+            self.past_win_wo_corr += 1
+            if self.past_win_wo_corr >= self.past_win_wo_corr_max:
+              self.get_logger().info("qual %f -> %f (corrected)" % (self.best_qual, self.best_doa))
+              self.reset_opt_correction(self.best_doa,self.best_qual)
+            else:
+              self.get_logger().info("qual %f -> %f" % (self.curr_qual, self.curr_doa))
+        else:
+          self.get_logger().info("qual %f -> %f" % (self.curr_qual, self.curr_doa))
+      #else:
+      #  self.get_logger().info("qual %f -> %f" % (self.curr_qual, self.curr_doa))
+      
+      if self.merge_doas:
+        self.doa_to_publish = self.get_merged_doa()
+      else:
+        if self.curr_opttheta == None:
+          self.doa_to_publish = self.curr_doa
+          self.curr_opttheta = self.curr_doa
+        else:
+          self.doa_to_publish = self.curr_opttheta
+          self.curr_doa = self.curr_opttheta
+      
+      self.get_logger().info("doa_to_publish: "+str(self.doa_to_publish))
+      
+      msg = Float32()
+      msg.data = self.doa_to_publish
+      self.publisher.publish(msg)
+      
+      
+      #if self.it < self.maxiter:
+      #  self.smoothcurr_weight = (self.it/self.maxiter) * (self.smoothopt_weight)
+      #else:
+      #  self.smoothcurr_weight = self.smoothopt_weight
+      #self.get_logger().info(f"current smoothcurr_weight is {self.smoothcurr_weight}")
+      self.smoothcurr_weight = self.smoothopt_weight
+      self.optreq.theta = self.smooth(self.doa_to_publish)
+      
+      #self.optreq.theta = self.doa_to_publish
+      
+      #if self.it < self.maxiter:
+      #  reqrange = self.reqrange_ini + (self.it/self.maxiter) * (self.reqrange_fin-self.reqrange_ini)
+      #else:
+      #  reqrange = self.reqrange_fin
+      #self.get_logger().info(f"current reqrange is {reqrange}")
+      #self.optreq.range = reqrange
+      
+      self.optreq.range = self.reqrange_ini
+      
+      
+      self.optreq.steps = self.reqsteps
+      
+      req_starttime = time.time()
+      optres = self.cli.call(self.optreq)
+      req_exectime = time.time() - req_starttime
+      
+      req_residtime = self.wait_for_qual - req_exectime
+      
+      #self.get_logger().info("residual time: "+str(req_residtime))
+      if req_residtime > 0.0:
+        time.sleep(req_residtime)
+      
+      if optres.thetas[0] == -1000.0:
+        self.it = 0
+        self.past_doa_calc = 0
+        self.past_win_wo_corr = 0
+        continue
+      
+      theta_req_i = int(len(optres.thetas)/2)
+      self.update_curr_qual(optres.quals[theta_req_i])
+      
+      self.curr_opttheta = float(np.average(optres.thetas,weights=optres.quals))
+      if self.curr_opttheta > optres.thetas[-1]:
+        self.curr_opttheta = optres.thetas[-1]
+      elif self.curr_opttheta < optres.thetas[0]:
+        self.curr_opttheta = optres.thetas[0]
+      
+      self.add_curr_doa()
+      
+      ### updating iteration number
+      self.it+=1
+      
+      ### adding the current quality (?)
+      self.add_curr_qual()
+
+def main(args=None):
+  rclpy.init(args=args)
+  doaoptimizer = DOAOptimizer()
+  rclpy.spin(doaoptimizer)
+
+  # Destroy the node explicitly
+  # (optional - otherwise it will be done automatically
+  # when the garbage collector destroys the node object)
+  doaoptimizer.destroy_node()
+  rclpy.shutdown()
+
+
+if __name__ == '__main__':
+  main()

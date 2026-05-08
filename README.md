@@ -11,14 +11,16 @@ The following directories in this repository represent one agent:
 - `demucs`: a speech enhancer that is trained with the output of the `beamformer` agent.
 - `demucsmix`: a variation of `demucs` that uses the output of the `beamformermix` agent variation.
 - `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality.
+- `doaoptimizer_brute`: a direction-of-arrival corrector by optimizing the quality assessment provided by the `online_sqa_brute` agent.
 - `doa_plot`: a plotter of the outputs of both the `soundloc` and the `doaoptimizer` agents.
 - `jack_control`: controls the start and end of the [`jackaudio`](https://jackaudio.org/) server.
 - `masacoord`: coordinates the start and end of all the agents using a [`terminator`](https://gnome-terminator.org/) split console.
 - `online_sqa`: measures the speech quality of the `demucs`/`demucsmix` output.
+- `online_sqa_brute`: measures the speech quality of a recreated beamformer output.
 - `soundloc`: a multiple-sound-source direction-of-arrival estimator.
 
 The rest of the directories define functions for communication protocols:
-- `jack_msgs`: defines the ROS2 message type `JackAudio` with which audio data is passed from one module to another.
+- `jack_msgs`: defines the ROS2 message type `JackAudio` with which audio data is passed from one module to another, as well as the `BruteTheta` and `SQA` ROS2 services.
 - `jack_cmd`: defines the ROS2 service `JACKcmd` with which the JACK audio server can be stopped and started with the `jack_control` agent.
 - `rosjack`: provides the functionality of bridging the ROS2 audio-type topics and the JACK audio server.
 
@@ -136,7 +138,7 @@ For ease of comparison between different MASA configurations, the following laun
         ros2 launch masacoord DOACorrection.launch
         ```
 
-Furthremore, there are two sets of agents that work with each other and may not be compatible with others. It depends if the `demucs` or the `demucsmix` variation is used, since the former requires both the estimations of the source of interest and the interference. Thus, they must be accompanied with their respective `beamformer`/`beamformermix` and `jack_write`/`jack_writemix` agents.
+Furthermore, there are two sets of agents that work with each other and may not be compatible with others. It depends if the `demucs` or the `demucsmix` variation is used, since the former requires both the estimations of the source of interest and the interference. Thus, they must be accompanied with their respective `beamformer`/`beamformermix` and `jack_write`/`jack_writemix` agents.
 
 The **DOACorrection** set launches the agents that are compatible with the mono `demucs` variation. As for the `demucsmix` variation, the following set launches its compatible agents:
 
@@ -155,3 +157,21 @@ The **DOACorrection** set launches the agents that are compatible with the mono 
         ```
         ros2 launch masacoord DOACorrectionMix.launch
         ```
+
+Finally, another quality paradigm is available that recreates the output of the beamformer in a DOA range, to provide a more robust quality assessment. The range is defined by a given central DOA, a given range, and a given number of steps to evaluate inside that range. It is slower than the other quality paradigm, since it assess the quality several times per audio window, instead of just one. However, it has shown to provide robust results in a wide variety of real-life scenarios.
+
+- **Brute** set: both frequency selection and DOA correction are carried out with another quality paradigm.
+    - `beamformer`
+    - `demucs`
+    - `jack_write`
+    - `online_sqa_brute`
+    - `soundloc`
+    - `doaoptimizer_brute`
+    - `freqselect`
+    - `theta_plot`
+    - `doa_plot`
+        - To launch:
+        ```
+        ros2 launch masacoord Brute.launch
+        ```
+

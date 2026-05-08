@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'masacoord = masacoord.masacoord:main',
+            'masacoord_brute = masacoord.masacoord_brute:main',
         ],
     },
 )

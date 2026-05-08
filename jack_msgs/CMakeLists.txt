@@ -12,8 +12,14 @@ set(msg_files
   "msg/JackAudio.msg"
 )
 
+set(srv_files
+  "srv/SQA.srv"
+  "srv/BruteTheta.srv"
+)
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
+  ${srv_files}
   DEPENDENCIES std_msgs
 )
 

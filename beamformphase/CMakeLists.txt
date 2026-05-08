@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(jack_msgs REQUIRED)
 find_package(rosjack REQUIRED)
+find_package(OpenMP REQUIRED)
 
 INCLUDE(FindPkgConfig)
 pkg_check_modules (GLIB2 glib-2.0)
@@ -30,6 +31,20 @@ include_directories(
 
 set(dependencies
   rclcpp std_msgs jack_msgs rosjack 
+)
+
+add_executable(mvdr src/mvdr.cpp)
+ament_target_dependencies(mvdr ${dependencies})
+target_link_libraries(mvdr
+  ${FFTW_LIBRARIES}
+  OpenMP::OpenMP_CXX
+)
+
+add_executable(phase_parallel src/phase_parallel.cpp)
+ament_target_dependencies(phase_parallel ${dependencies})
+target_link_libraries(phase_parallel
+  ${FFTW_LIBRARIES}
+  OpenMP::OpenMP_CXX
 )
 
 add_executable(phase src/phase.cpp)
@@ -59,6 +74,12 @@ target_link_libraries(rosjack_ref
   ${FFTW_LIBRARIES}
 )
 
+install(TARGETS mvdr
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS phase_parallel
+  DESTINATION lib/${PROJECT_NAME}
+)
 install(TARGETS phase
   DESTINATION lib/${PROJECT_NAME}
 )

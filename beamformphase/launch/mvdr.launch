@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="beamformphase" name="beamformphase" exec="mvdr" output="screen">
+    <param from="$(find-pkg-share beamformphase)/config/rosjack_config.yaml" />
+    <param from="$(find-pkg-share beamformphase)/config/beamform_config.yaml" />
+    <param name="past_windows" value="1" />
+    <param name="freq_mag_threshold" value="0.0001" />
+    <param name="freq_max" value="6000.0" />
+    <param name="freq_min" value="50.0" />
+    <param name="true_cov" value="0" />
+    <param name="cov_smooth" value="0.999" />
+  </node>
+</launch>

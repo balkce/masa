@@ -2,6 +2,7 @@
     ros__parameters:
         input_length: 0.512
         init_doa: 15.0
+        ref_doa: 0.0
         eta: 0.3 #0.3 for sdr, stoi and scoreq
         smooth_weight: 0.65 #0.9 for sdr, 0.65 for stoi, 0.75 for scoreq
         quality_type: 'stoi' # can be: 'sdr', 'stoi, 'pesq', 'scoreq', or 'audbox'

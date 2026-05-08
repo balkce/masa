@@ -27,6 +27,8 @@ class ThetaPlot(Node):
     
     self.declare_parameter('max_time', 0.0)
     self.max_time = self.get_parameter('max_time').get_parameter_value().double_value
+    self.declare_parameter('ref_doa', 0.0)
+    self.ref_doa = self.get_parameter('ref_doa').get_parameter_value().double_value
     self.declare_parameter('terminal_output', False)
     self.terminal_output = self.get_parameter('terminal_output').get_parameter_value().bool_value
     
@@ -69,7 +71,7 @@ class ThetaPlot(Node):
       
       (self.ln_time,) = self.ax_time.plot([0.0], [0.0], linestyle='-', marker='.', markersize=5, animated=True)
       self.ax_time.set_xlim(-0.1,self.max_time+0.1)
-      self.ax_time.set_ylim(-15.0,25.0)
+      self.ax_time.set_ylim(self.ref_doa-20.0,self.ref_doa+20.0)
       self.ax_time.grid(True)
       plt.show(block=False)
       plt.pause(1)

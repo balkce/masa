@@ -53,6 +53,8 @@ class MASACoord(Node):
     self.input_length = str(self.get_parameter('input_length').get_parameter_value().double_value)
     self.declare_parameter('init_doa', 15.0)
     self.init_doa = str(self.get_parameter('init_doa').get_parameter_value().double_value)
+    self.declare_parameter('ref_doa', 0.0)
+    self.ref_doa = str(self.get_parameter('ref_doa').get_parameter_value().double_value)
     self.declare_parameter('eta', 0.3)
     self.eta = str(self.get_parameter('eta').get_parameter_value().double_value)
     self.declare_parameter('wait_for_qual', 1.5)
@@ -192,7 +194,7 @@ class MASACoord(Node):
       
       'theta_plot':
         {
-          'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+'',
+          'cmd': 'ros2 run doa_plot theta_plot --ros-args -p max_time:='+self.max_time+' -p ref_doa:='+self.ref_doa+'',
           'cmd_fi': None,
           'cmd_fu': None
         },

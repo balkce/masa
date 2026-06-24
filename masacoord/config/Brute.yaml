@@ -17,8 +17,8 @@
         merge_doas: True
         opt_correction: False
         masa_order: [
-          'beamformer',
-          'demucs',
+          'beamformermvdr',
+          'muse',
           'jack_write',
           'theta_plot',
           'online_sqa',

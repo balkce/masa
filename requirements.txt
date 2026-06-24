@@ -1,13 +1,18 @@
-torch>2.1
-torchaudio
+torch==2.4.1
+torchaudio==2.4.1
+torchvision==0.19.1
 julius
 pykalman
 numpy
-scikit-learn>=1.5.0
+scikit-learn
 wavfile
 matplotlib
 JACK-client
+samplerate
 audiobox_aesthetics
+fairseq
+einops
+pesq
 onnx
 onnxruntime-gpu
 

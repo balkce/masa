@@ -14,7 +14,7 @@
         merge_doas: True
         opt_correction: True
         masa_order: [
-          'beamformer',
+          'beamformerphase',
           'demucs',
           'jack_write',
           'online_sqa',

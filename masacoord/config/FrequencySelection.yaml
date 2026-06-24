@@ -14,7 +14,7 @@
         merge_doas: False
         opt_correction: False
         masa_order: [
-          'beamformer',
+          'beamformerphase',
           'demucs',
           'jack_write',
           'soundloc',

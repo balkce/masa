@@ -83,23 +83,17 @@ class MuseMVDRROSAudio(Node):
     self.segment_size = int(self.muse_win_num*self.jack_win_size)
     self.padded_zeros = torch.zeros(1, self.muse_segment_size - self.segment_size).to(self.device)
     
-    print(f"input_length     : {self.input_length} seconds")
-    print(f"segment_size     : {self.segment_size} samples")
-    print(f"jack_win_size: {self.jack_win_size} samples")
-    print(f"sample rate  : {self.samplerate} samples/second")
-    
-    print(f"muse_win_num: {self.muse_win_num} windows")
+    print(f"input_length  : {self.input_length} seconds")
+    print(f"segment_size  : {self.segment_size} samples")
+    print(f"jack_win_size : {self.jack_win_size} samples")
+    print(f"sample rate   : {self.samplerate} samples/second")
+    print(f"muse_win_num  : {self.muse_win_num} windows")
     
     self.muse_ring_in = deque([])
     self.muse_ring_out = deque([])
-    self.muse_in = [0.0]*(self.muse_win_num*self.jack_win_size)
-    self.muse_out = [0.0]*(self.muse_win_num*self.jack_win_size)
-    self.muse_in_win_i = 0
-    self.muse_out_win_i = 0
-    self.READY_TO_CLONE_OUT = True
     
-    self.sf_file_in = sf.SoundFile("out_muse_in.wav",mode="w",samplerate=h.sampling_rate,channels=1,subtype='PCM_16')
-    self.sf_file_out = sf.SoundFile("out_muse_out.wav",mode="w",samplerate=h.sampling_rate,channels=1,subtype='PCM_16')
+    #self.sf_file_in = sf.SoundFile("out_muse_in.wav",mode="w",samplerate=h.sampling_rate,channels=1,subtype='PCM_16')
+    #self.sf_file_out = sf.SoundFile("out_muse_out.wav",mode="w",samplerate=h.sampling_rate,channels=1,subtype='PCM_16')
     
     print("doing initial model test to allocate memory")
     self.muse_allocate = True
@@ -118,20 +112,17 @@ class MuseMVDRROSAudio(Node):
   
   
   def muse_callback(self):
-    if not self.muse_allocate:
-      capt_time = time.time() - self.past_start
-      print(f"capture time : {capt_time}")
-    self.past_start = time.time()
+    #if not self.muse_allocate:
+    #  capt_time = time.time() - self.past_start
+    #  print(f"capture time : {capt_time}")
+    #self.past_start = time.time()
+    #start_time = time.time()
     
-    start_time = time.time()
-    
-    #input_win = torch.tensor(self.muse_in,device=self.device).unsqueeze(0)
-    
+    #grabbing audio data from jackaudio
     input_win = torch.tensor([self.muse_ring_in.popleft() for _i in range(self.segment_size)],device=self.device).unsqueeze(0)
     
+    #calculating norm factor
     if not self.muse_allocate:
-      #this_rms = torch.sqrt(len(input_win) / torch.sum(input_win ** 2.0)).item()
-      print(f"{len(self.past_rms)=}")
       if len(self.past_rms) >= self.past_rms_len:
         del self.past_rms[0]
       
@@ -143,55 +134,47 @@ class MuseMVDRROSAudio(Node):
     else:
       norm_factor = 1.0
     
-    self.sf_file_in.write(input_win.squeeze().cpu().detach().numpy())
+    #self.sf_file_in.write(input_win.squeeze().cpu().detach().numpy())
     
-    #padding
-    print(f"{input_win.shape=}")
+    #padding audio data to muse expected size
     input_win = torch.cat((input_win, self.padded_zeros), dim=1)
-    print(f"{input_win.shape=}")
     
+    #launching muse
     noisy_amp, noisy_pha, noisy_com = self.mag_pha_stft(input_win, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
     amp_g, pha_g, com_g = self.muse(noisy_amp.to(self.device, non_blocking=True), noisy_pha.to(self.device, non_blocking=True))
     audio_g = self.mag_pha_istft(amp_g, pha_g, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
+    
+    #normalizing muse output and cutting to expected size
     audio_g = audio_g * norm_factor
     audio_g = audio_g.squeeze()
-    print(f"{audio_g.shape=}")
     audio_g = audio_g[ :-(self.muse_segment_size-self.segment_size)]
-    print(f"{audio_g.shape=}")
     
-    self.sf_file_out.write(audio_g.cpu().detach().numpy())
+    #self.sf_file_out.write(audio_g.cpu().detach().numpy())
     
+    #outputting to jack audio filtered, if not in "allocating" mode
     if not self.muse_allocate:
-      exec_time = time.time() - start_time
-      print(f"execution time : {exec_time}")
+      #exec_time = time.time() - start_time
+      #print(f"execution time : {exec_time}")
       
-      #self.get_logger().info('capture time: %f, response time: %f' % (capt_time, exec_time))
-      
-      #while not self.READY_TO_CLONE_OUT:
-      #  time.sleep(0.001)
-      #self.muse_out = audio_g.tolist()
       self.muse_ring_out.extend(audio_g.tolist())
-      #self.READY_TO_CLONE_OUT = False
   
   def jackaudio_callback(self, msg):
-    #self.muse_in[self.muse_in_win_i*self.jack_win_size:(self.muse_in_win_i+1)*self.jack_win_size] = msg.data
     self.muse_ring_in.extend(msg.data)
     
     if len(self.muse_ring_in) >= self.segment_size:
-      print(f"{len(self.muse_ring_in)=}")
+      #print(f"{len(self.muse_ring_in)=}")
       if self.muse_thread.is_alive():
-        print("waiting for muse to finish last segment")
+        #print("waiting for muse to finish last segment")
         self.muse_thread.join()
-      print("doing muse")
+      #print("doing muse")
       self.muse_thread = Thread(target=self.muse_callback)
       self.muse_thread.start()
     
-    #filt_win = self.muse_out[self.muse_out_win_i*self.jack_win_size:(self.muse_out_win_i+1)*self.jack_win_size]
-    print(f"{len(self.muse_ring_out)=}")
+    #print(f"{len(self.muse_ring_out)=}")
     if len(self.muse_ring_out) >= self.jack_win_size:
       filt_win = [self.muse_ring_out.popleft() for _i in range(self.jack_win_size)]
     else:
-      print("publishing zero'ed jack window")
+      #print("publishing zero'ed jack window")
       filt_win = [0.0]*(self.jack_win_size)
     
     msg_filt = JackAudio()
@@ -199,12 +182,6 @@ class MuseMVDRROSAudio(Node):
     msg_filt.header.stamp = self.get_clock().now().to_msg()
     msg_filt.data = filt_win
     self.publisher.publish(msg_filt)
-    
-    #self.muse_out_win_i += self.jack_win_size
-    #print(f"{self.muse_out_win_i=}")
-    #if self.muse_out_win_i >= self.segment_size:
-    #  self.muse_out_win_i = 0
-    #  self.READY_TO_CLONE_OUT = True
   
   def mag_pha_stft(self, y, n_fft, hop_size, win_size, compress_factor=1.0, center=True):
     stft_spec = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=self.hann_window, center=center, pad_mode='reflect', normalized=False, return_complex=True)

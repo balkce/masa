@@ -29,17 +29,24 @@ class MuseMVDRROSAudio(Node):
     super().__init__('muse')
     
     self.device = "cuda"
-    self.subscription = self.create_subscription(JackAudio, '/jackaudio', self.jackaudio_callback,1000)
-    self.subscription  # prevent unused variable warning
     self.publisher = self.create_publisher(JackAudio, '/jackaudio_filtered', 1000)
     
     self.declare_parameter('input_length', 0.512)
     self.input_length = self.get_parameter('input_length').get_parameter_value().double_value
+    self.declare_parameter('beam_type', 'mvdr')
+    self.beam_type = self.get_parameter('beam_type').get_parameter_value().string_value
+    if self.beam_type != 'mvdr' and self.beam_type != 'phase':
+      print("invalid beam_type value ("+str(self.beam_type)+"). Can only be 'mvdr' or 'phase'. Defaulting to 'mvdr'.")
+      self.beam_type = 'mvdr'
     
     this_share_directory = get_package_share_directory('muse')
     this_base_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(this_share_directory))))
     this_src_directory = os.path.join(this_base_directory,"src","muse")
-    self.muse_modelpath = os.path.join(this_src_directory,"pretrained_model","g_best")
+    if self.beam_type == 'phase':
+      self.muse_modelpath = os.path.join(this_src_directory,"pretrained_model","g_best-phase")
+    else:
+      self.muse_modelpath = os.path.join(this_src_directory,"pretrained_model","g_best-mvdr")
+    
     self.muse_configpath = os.path.join(this_src_directory,"pretrained_model","config.json")
     print("Using the following pretrained model : "+self.muse_modelpath)
     print("Using the following pretrained config: "+self.muse_configpath)
@@ -78,16 +85,16 @@ class MuseMVDRROSAudio(Node):
     
     self.jack_win_size = 1024 #BIG assumption
     
-    
-    self.muse_win_num = int((self.input_length*self.samplerate)/self.jack_win_size)
-    self.segment_size = int(self.muse_win_num*self.jack_win_size)
-    self.padded_zeros = torch.zeros(1, self.muse_segment_size - self.segment_size).to(self.device)
+    self.segment_size = int((self.input_length*self.samplerate))
+    frames = (self.segment_size // self.hop_size) + 1
+    if frames % 4 != 0:
+      frames += 4 - (frames % 4)
+      self.segment_size = (frames - 1) * self.hop_size
     
     print(f"input_length  : {self.input_length} seconds")
     print(f"segment_size  : {self.segment_size} samples")
     print(f"jack_win_size : {self.jack_win_size} samples")
     print(f"sample rate   : {self.samplerate} samples/second")
-    print(f"muse_win_num  : {self.muse_win_num} windows")
     
     self.muse_ring_in = deque([])
     self.muse_ring_out = deque([])
@@ -109,7 +116,10 @@ class MuseMVDRROSAudio(Node):
     
     self.past_rms = []
     self.past_rms_len = 10
-  
+    
+    print("starting to capture...")
+    self.subscription = self.create_subscription(JackAudio, '/jackaudio', self.jackaudio_callback,1000)
+    self.subscription  # prevent unused variable warning
   
   def muse_callback(self):
     #if not self.muse_allocate:
@@ -136,18 +146,14 @@ class MuseMVDRROSAudio(Node):
     
     #self.sf_file_in.write(input_win.squeeze().cpu().detach().numpy())
     
-    #padding audio data to muse expected size
-    input_win = torch.cat((input_win, self.padded_zeros), dim=1)
-    
     #launching muse
     noisy_amp, noisy_pha, noisy_com = self.mag_pha_stft(input_win, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
     amp_g, pha_g, com_g = self.muse(noisy_amp.to(self.device, non_blocking=True), noisy_pha.to(self.device, non_blocking=True))
     audio_g = self.mag_pha_istft(amp_g, pha_g, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
     
-    #normalizing muse output and cutting to expected size
+    #normalizing muse output
     audio_g = audio_g * norm_factor
     audio_g = audio_g.squeeze()
-    audio_g = audio_g[ :-(self.muse_segment_size-self.segment_size)]
     
     #self.sf_file_out.write(audio_g.cpu().detach().numpy())
     

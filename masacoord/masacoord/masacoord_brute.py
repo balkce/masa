@@ -117,6 +117,17 @@ class MASACoord(Node):
             ]
         },
       
+      'beamformermvdrmix':
+        {
+          'cmd': 'ros2 launch beamformphase mvdrmix.launch',
+          'cmd_fi': None,
+          'cmd_fu':
+            [
+              ['sleep','1'],
+              ['jack_disconnect','beamformphase:output','system:playback_1']
+            ]
+        },
+      
       'beamformerphase':
         {
           'cmd': 'ros2 launch beamformphase phase.launch',
@@ -142,6 +153,13 @@ class MASACoord(Node):
       'muse':
         {
           'cmd': 'ros2 run muse muse  --ros-args -p input_length:='+self.input_length+'',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
+      'musemix':
+        {
+          'cmd': 'ros2 run musemix musemix  --ros-args -p input_length:='+self.input_length+'',
           'cmd_fi': None,
           'cmd_fu': None
         },

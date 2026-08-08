@@ -50,6 +50,7 @@ std::mutex jack_mtx;
 bool auto_connect = true;
 bool write_file = false;
 bool write_xrun = false;
+bool initial_wait = false;
 
 unsigned int xruns_count = 0;
 
@@ -229,7 +230,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
     return 1;
   }
   
-  int ros2jack_buffer_mult = 5;
+  int ros2jack_buffer_mult = 6; //good balance between responsiveness and not having a choppy output
   
   if(ros_output_sample_rate != rosjack_sample_rate){
     RCLCPP_INFO(rosjack_node->get_logger(),"Creating the sample rate converter for ROS output...");
@@ -307,6 +308,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
     //  audio_info.samplerate = ros_output_sample_rate;
     
     audio_info.samplerate = rosjack_sample_rate;
+    //audio_info.samplerate = ros_output_sample_rate;
     audio_info.channels = 1;
     audio_info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
     audio_file = sf_open (audio_file_path,SFM_WRITE,&audio_info);
@@ -324,7 +326,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
   }
   
   if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
-    ros2jack_buffer_size = jack_get_buffer_size (jack_client)*ros2jack_buffer_mult;
+    ros2jack_buffer_size = jack_get_buffer_size (jack_client)*(ros2jack_buffer_mult);
     ros2jack_buffer = (rosjack_data *)malloc(sizeof(rosjack_data)*ros2jack_buffer_size);
     RCLCPP_INFO(rosjack_node->get_logger(),"ROSJACK Buffer size: %d", ros2jack_buffer_size);
   }
@@ -547,7 +549,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
       case ROSJACK_OUT_BOTH:{
         jack_msgs::msg::JackAudio out;
         out.size = data_length;
-        out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+        //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
         rosjack_data *out_j = (rosjack_data *)jack_port_get_buffer (jack_output_port, data_length); 
         for (j = 0; j < data_length; ++j){
           out.data.push_back(data_out[j]);
@@ -572,7 +574,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
       case ROSJACK_OUT_ROS:{
         jack_msgs::msg::JackAudio out;
         out.size = data_length;
-        out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+        //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
         for (j = 0; j < data_length; ++j){
           out.data.push_back(data_out[j]);
           if(fabs(data_out[j]) >= 1.0){
@@ -607,7 +609,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length/2)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length/2; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 out.data.push_back(samplerate_circbuff_int[samplerate_circbuff_r]);
@@ -623,7 +625,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length/2)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length/2; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 out.data.push_back(samplerate_circbuff_int[samplerate_circbuff_r]);
@@ -659,7 +661,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 write_file_buffer[j] = samplerate_circbuff[samplerate_circbuff_r];
@@ -674,7 +676,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 samplerate_circbuff_r++;
@@ -703,7 +705,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 write_file_buffer[j] = samplerate_circbuff[samplerate_circbuff_r];
@@ -718,7 +720,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 samplerate_circbuff_r++;
@@ -753,7 +755,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 write_file_buffer[j] = samplerate_circbuff[samplerate_circbuff_r];
@@ -768,7 +770,7 @@ void output_to_rosjack (rosjack_data *data_out, unsigned int data_length){
             if(convert_to_sample_rate_ready(data_length)){
               jack_msgs::msg::JackAudio out;
               out.size = data_length;
-              out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
+              //out.header.stamp = get_stamp(jack_last_frame_time(jack_client));
               for (j = 0; j < data_length; ++j){
                 out.data.push_back(samplerate_circbuff[samplerate_circbuff_r]);
                 samplerate_circbuff_r++;
@@ -810,41 +812,46 @@ void rosjack_roscallback(const jack_msgs::msg::JackAudio::SharedPtr msg){
     }
     jack_mtx.unlock();
   }else{
-    int i;
-    if(rosjack_type == ROSJACK_WRITE_STEREO){
-      msg_size /= 2;
-    }
-    rosjack_data *data_out = (rosjack_data *)malloc(sizeof(rosjack_data)*msg_size);
-    
-    if(rosjack_type == ROSJACK_WRITE_STEREO){
-      for (i = 0; i < msg_size; i++){
-        data_out[i] = msg->data[(i*2)];
+    // for some odd reason, output is choppy if both buffers (ros2jack_buffer and samplerate_circbuff) aren't in sync at the start of each other... weird
+    if(initial_wait || ros2jack_buffer_size_r <= (rosjack_window_size*2)){
+      initial_wait = true;
+      
+      int i;
+      if(rosjack_type == ROSJACK_WRITE_STEREO){
+        msg_size /= 2;
       }
-    }else{
-      for (i = 0; i < msg_size; i++){
-        data_out[i] = msg->data[i];
+      rosjack_data *data_out = (rosjack_data *)malloc(sizeof(rosjack_data)*msg_size);
+      
+      if(rosjack_type == ROSJACK_WRITE_STEREO){
+        for (i = 0; i < msg_size; i++){
+          data_out[i] = msg->data[(i*2)];
+        }
+      }else{
+        for (i = 0; i < msg_size; i++){
+          data_out[i] = msg->data[i];
+        }
       }
-    }
-    
-    convert_to_sample_rate(data_out,msg_size);
-    
-    if (convert_to_sample_rate_ready(samplerate_data.output_frames_gen) && samplerate_data.output_frames_gen >= msg_size*samplerate_data.src_ratio){
-      //printf("ROS -> msg_size: %d, samplerate_data.output_frames_gen: %ld\n", msg_size, samplerate_data.output_frames_gen); fflush(stdout);
-      jack_mtx.lock();
-      for (i = 0; i < samplerate_data.output_frames_gen; i++){
-        ros2jack_buffer[ros2jack_buffer_size_w] = samplerate_circbuff[samplerate_circbuff_r];
-        
-        ros2jack_buffer_size_w++;
-        if(ros2jack_buffer_size_w >= ros2jack_buffer_size)
-          ros2jack_buffer_size_w = 0;
+      
+      convert_to_sample_rate(data_out,msg_size);
+      
+      if (convert_to_sample_rate_ready(samplerate_data.output_frames_gen) && samplerate_data.output_frames_gen >= msg_size*samplerate_data.src_ratio){
+        //printf("ROS -> msg_size: %d, samplerate_data.output_frames_gen: %ld\n", msg_size, samplerate_data.output_frames_gen); fflush(stdout);
+        jack_mtx.lock();
+        for (i = 0; i < samplerate_data.output_frames_gen; i++){
+          ros2jack_buffer[ros2jack_buffer_size_w] = samplerate_circbuff[samplerate_circbuff_r];
           
-        samplerate_circbuff_r++;
-        if(samplerate_circbuff_r >= samplerate_circbuff_size)
-          samplerate_circbuff_r = 0;
+          ros2jack_buffer_size_w++;
+          if(ros2jack_buffer_size_w >= ros2jack_buffer_size)
+            ros2jack_buffer_size_w = 0;
+            
+          samplerate_circbuff_r++;
+          if(samplerate_circbuff_r >= samplerate_circbuff_size)
+            samplerate_circbuff_r = 0;
+        }
+        jack_mtx.unlock();
       }
-      jack_mtx.unlock();
+      free(data_out);
     }
-    free(data_out);
   }
   //printf("ROS -> samplerate_circbuff_w: %d, samplerate_circbuff_r: %d\n", samplerate_circbuff_w, samplerate_circbuff_r); fflush(stdout);
   //printf("ROS -> ros2jack_buffer_size_w: %d, ros2jack_buffer_size_r: %d\n", ros2jack_buffer_size_w, ros2jack_buffer_size_r); fflush(stdout);

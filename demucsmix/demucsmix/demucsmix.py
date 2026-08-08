@@ -21,8 +21,6 @@ class DemucsPhaseMixROSAudio(Node):
     super().__init__('demucsmix')
     
     self.device = "cuda"
-    self.subscription = self.create_subscription(JackAudio, '/jackaudiostereo', self.jackaudio_callback,1000)
-    self.subscription  # prevent unused variable warning
     self.publisher = self.create_publisher(JackAudio, '/jackaudio_filtered', 1000)
     
     self.declare_parameter('input_length', 0.512)
@@ -54,20 +52,50 @@ class DemucsPhaseMixROSAudio(Node):
     self.demucs_out = [0.0]*(self.demucs_win_num*self.jack_win_size)
     self.demucs_in_win_i = 0
     self.demucs_out_win_i = 0
+    
+    self.variance = 0
+    self.frames = 0
+    self.floor = 1e-3
+    
+    print("doing initial model test to allocate memory")
+    self.READY_TO_CLONE_OUT = True
+    self.demucs_thread = Thread(target=self.demucs_callback)
+    self.demucs_thread.start()
+    self.demucs_thread.join()
+    print("...done")
+    
+    self.variance = 0
+    self.frames = 0
+    
     self.READY_TO_CLONE_OUT = False
     self.demucs_thread = Thread(target=self.demucs_callback)
-
+    
+    print("starting to capture...")
+    self.subscription = self.create_subscription(JackAudio, '/jackaudiostereo', self.jackaudio_callback,1000)
+    self.subscription  # prevent unused variable warning
   
   def demucs_callback(self):
+    self.frames += 1
+    
     #capt_time = time.time() - self.past_start
     #print(f"capture time : {capt_time}")
     #self.past_start = time.time()
     
     #start_time = time.time()
     input_win = torch.tensor(self.demucs_in,device=self.device).unsqueeze(0).unsqueeze(0)
+    
+    #getting norm
+    variance = (input_win**2).mean()
+    self.variance = variance / self.frames + (1 - 1 / self.frames) * self.variance
+    input_win = input_win / (self.floor + math.sqrt(self.variance))
+    
     interf_signal = torch.tensor(self.demucs_in_int,device=self.device).unsqueeze(0).unsqueeze(0)
     noisy_win = self.combine_interf (input_win,interf_signal)
-    output_win = self.demucs(noisy_win)[0][0].tolist()
+    output_win_unnorm = self.demucs(noisy_win)[0][0]
+    
+    #normalizing output
+    output_win = (output_win_unnorm*math.sqrt(self.variance)).tolist()
+    
     #exec_time = time.time() - start_time
     #print(f"execution time : {exec_time}")
     

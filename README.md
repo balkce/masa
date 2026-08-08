@@ -7,16 +7,17 @@ A framework for sound source localization, separation and classification, featur
 
 The following directories in this repository represent one agent:
 
-- `beamformer`: a beamformer module, with three variations: `beamformerphase` which is based on the phase difference between microphones, and only provides the estimation of the source of interest; `beamformerphasemix` that also provides the estimation of the interference, in a multiplexed format; and `beamformermvdr` which is based on the Minimum Variance Distortionless Response technique (with covariance update), and only provides the estimation of the source of interest. This modules also provides the `jack_write` agent that channels the output of the `demucs`/`demucsmix` agent to the JACK server.
+- `beamformer`: a beamformer module, with three variations: `beamformerphase` which is based on the phase difference between microphones, and only provides the estimation of the source of interest; `beamformerphasemix` that also provides the estimation of the interference, in a multiplexed format; `beamformermvdr` which is based on the Minimum Variance Distortionless Response technique (with covariance update), and only provides the estimation of the source of interest; and `beamformermvdrmix` which is also based on MVDR while also providing the estimation of the interference (by substraction from reference microphone), in a multiplexed format. This modules also provides the `jack_write` agent that channels the output of the `demucs`/`demucsmix`/`muse`/`musemix` agent to the JACK server.
 - `demucs`: a speech enhancer based on the Demucs model, trained with the output of the `beamformerphasemix` agent variation.
 - `demucsmix`: a variation of `demucs` that uses the output of the `beamformermix` agent variation.
 - `muse`: a speech enhancer based on the MUSE model, trained with the output of the `beamformermvdr` agent variation.
+- `musemix`: a variation of `muse` that uses the output of the `beamformermvdrmix` agent variation.
 - `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality.
 - `doaoptimizer_brute`: a direction-of-arrival corrector by optimizing the quality assessment provided by the `online_sqa_brute` agent.
 - `doa_plot`: a plotter of the outputs of both the `soundloc` and the `doaoptimizer` agents.
 - `jack_control`: controls the start and end of the [`jackaudio`](https://jackaudio.org/) server.
 - `masacoord`: coordinates the start and end of all the agents using a [`terminator`](https://gnome-terminator.org/) split console.
-- `online_sqa`: measures the speech quality of the `demucs`/`demucsmix` output.
+- `online_sqa`: measures the speech quality of the `demucs`/`demucsmix`/`muse`/`musemix` output.
 - `online_sqa_brute`: measures the speech quality of a recreated beamformer output.
 - `soundloc`: a multiple-sound-source direction-of-arrival estimator.
 
@@ -159,7 +160,7 @@ The **DOACorrection** set launches the agents that are compatible with the mono 
         ros2 launch masacoord DOACorrectionMix.launch
         ```
 
-Finally, another quality paradigm is available that recreates the output of the beamformer in a DOA range, to provide a more robust quality assessment. The range is defined by a given central DOA, a given range, and a given number of steps to evaluate inside that range. It is slower than the other quality paradigm, since it assess the quality several times per audio window, instead of just one. However, it has shown to provide robust results in a wide variety of real-life scenarios. Additionally, for consistency, it employs the `muse` speech enhancer along with its respective `beamformermvdr` agent.
+Finally, another quality paradigm is available that recreates the output of the beamformer in a DOA range, to provide a more robust quality assessment. The range is defined by a given central DOA, a given range, and a given number of steps to evaluate inside that range. It is slower than the other quality paradigm, since it assess the quality several times per audio window, instead of just one. However, it has shown to provide robust results in a wide variety of real-life scenarios. Additionally, for consistency, it employs the `muse` speech enhancer along with its respective `beamformermvdr` agent. It also has a mix variation of both agents.
 
 - **Brute** set: both frequency selection and DOA correction are carried out with another quality paradigm.
     - `beamformermvdr`
@@ -174,5 +175,19 @@ Finally, another quality paradigm is available that recreates the output of the 
         - To launch:
         ```
         ros2 launch masacoord Brute.launch
+        ```
+- **BruteMix** set: both frequency selection and DOA correction are carried out with another quality paradigm, using the mix variation.
+    - `beamformermvdrmix`
+    - `musemix`
+    - `jack_write`
+    - `online_sqa_brute`
+    - `soundloc`
+    - `doaoptimizer_brute`
+    - `freqselect`
+    - `theta_plot`
+    - `doa_plot`
+        - To launch:
+        ```
+        ros2 launch masacoord BruteMix.launch
         ```
 

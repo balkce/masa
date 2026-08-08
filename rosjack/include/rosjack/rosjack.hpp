@@ -83,6 +83,7 @@ extern std::mutex jack_mtx;
 extern bool auto_connect;
 extern bool write_file;
 extern bool write_xrun;
+extern bool initial_wait;
 
 extern unsigned int xruns_count;
 

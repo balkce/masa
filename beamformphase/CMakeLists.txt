@@ -40,6 +40,13 @@ target_link_libraries(mvdr
   OpenMP::OpenMP_CXX
 )
 
+add_executable(mvdrmix src/mvdrmix.cpp)
+ament_target_dependencies(mvdrmix ${dependencies})
+target_link_libraries(mvdrmix
+  ${FFTW_LIBRARIES}
+  OpenMP::OpenMP_CXX
+)
+
 add_executable(phase_parallel src/phase_parallel.cpp)
 ament_target_dependencies(phase_parallel ${dependencies})
 target_link_libraries(phase_parallel
@@ -75,6 +82,9 @@ target_link_libraries(rosjack_ref
 )
 
 install(TARGETS mvdr
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS mvdrmix
   DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS phase_parallel

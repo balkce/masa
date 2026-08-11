@@ -194,6 +194,13 @@ class MASACoord(Node):
           'cmd_fu': None
         },
       
+      'jack_writemix2':
+        {
+          'cmd': 'ros2 launch beamformphase rosjack_write_stereo2.launch',
+          'cmd_fi': None,
+          'cmd_fu': None
+        },
+      
       'online_sqa':
         {
           'cmd': 'ros2 run online_sqa online_sqa_brute --ros-args -p win_len_secs:='+self.win_len_secs+' -p audio_to_eval:='+self.audio_to_eval+' -p init_doa:='+self.init_doa+' -p quality_type:='+self.quality_type+' -p beamformtype:='+self.beamformtype+'',

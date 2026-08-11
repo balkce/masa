@@ -7,6 +7,6 @@
     <param name="write_file_path" value="" />
     <param name="write_xrun" value="false" />
     <param name="ros_output_sample_rate" value="16000" />
-    <param name="second_channel" value="false" />
+    <param name="second_channel" value="true" />
   </node>
 </launch>

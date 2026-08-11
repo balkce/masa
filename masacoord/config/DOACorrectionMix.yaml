@@ -16,7 +16,7 @@
         masa_order: [
           'beamformerphasemix',
           'demucsmix',
-          'jack_writemix',
+          'jack_write',
           'online_sqa',
           'soundloc',
           'doaoptimizer',

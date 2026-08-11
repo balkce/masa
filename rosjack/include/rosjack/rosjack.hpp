@@ -37,6 +37,7 @@
 #define ROSJACK_WRITE 1
 #define ROSJACK_READ_STEREO 2
 #define ROSJACK_WRITE_STEREO 3
+#define ROSJACK_WRITE_STEREO2 4
 
 typedef jack_default_audio_sample_t rosjack_data;
 

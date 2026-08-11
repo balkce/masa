@@ -249,7 +249,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
       }
     }
     
-    if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
+    if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
       samplerate_data.src_ratio = (double)(((double)rosjack_sample_rate)/((double)ros_output_sample_rate));
     }else if (rosjack_type == ROSJACK_READ){
       samplerate_data.src_ratio = (double)(((double)ros_output_sample_rate)/((double)rosjack_sample_rate));
@@ -264,7 +264,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
       ros_output_sample_rate = rosjack_sample_rate;
     }
     
-    if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
+    if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
       int data_out_size = rosjack_window_size*samplerate_data.src_ratio;
       
       samplerate_circbuff_size = data_out_size*ros2jack_buffer_mult;
@@ -325,7 +325,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
     }
   }
   
-  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
+  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
     ros2jack_buffer_size = jack_get_buffer_size (jack_client)*(ros2jack_buffer_mult);
     ros2jack_buffer = (rosjack_data *)malloc(sizeof(rosjack_data)*ros2jack_buffer_size);
     RCLCPP_INFO(rosjack_node->get_logger(),"ROSJACK Buffer size: %d", ros2jack_buffer_size);
@@ -387,7 +387,7 @@ int rosjack_create (int rosjack_readwrite, std::shared_ptr<rclcpp::Node> rosjack
   }
   
   
-  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
+  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
     rosjack_in = rosjack_node->create_subscription<jack_msgs::msg::JackAudio>(topic_name, 1000,
       [rosjack_node, topic_name](const jack_msgs::msg::JackAudio::SharedPtr msg) {
           rosjack_roscallback(msg);
@@ -432,7 +432,7 @@ void siginthandler(int sig){
     std::cout << "Closing topic jackaudio publisher." << std::endl;
     rosjack_out.reset();
   }
-  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO){
+  if(rosjack_type == ROSJACK_WRITE || rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
     std::cout << "Closing topic jackaudio subscriber." << std::endl;
     rosjack_in.reset();
   }
@@ -817,7 +817,7 @@ void rosjack_roscallback(const jack_msgs::msg::JackAudio::SharedPtr msg){
       initial_wait = true;
       
       int i;
-      if(rosjack_type == ROSJACK_WRITE_STEREO){
+      if(rosjack_type == ROSJACK_WRITE_STEREO || rosjack_type == ROSJACK_WRITE_STEREO2){
         msg_size /= 2;
       }
       rosjack_data *data_out = (rosjack_data *)malloc(sizeof(rosjack_data)*msg_size);
@@ -825,6 +825,10 @@ void rosjack_roscallback(const jack_msgs::msg::JackAudio::SharedPtr msg){
       if(rosjack_type == ROSJACK_WRITE_STEREO){
         for (i = 0; i < msg_size; i++){
           data_out[i] = msg->data[(i*2)];
+        }
+      }else if(rosjack_type == ROSJACK_WRITE_STEREO2){
+        for (i = 0; i < msg_size; i++){
+          data_out[i] = msg->data[(i*2)+1];
         }
       }else{
         for (i = 0; i < msg_size; i++){

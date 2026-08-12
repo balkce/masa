@@ -1,6 +1,8 @@
 # Multi-agent Auditory Scene Analysis
 A framework for sound source localization, separation and classification, featuring the ability to provide feedback between agents (such as separation quality correcting localization errors, or source class establishing frequency search space). This results in simpler agents (and, in turn, faster response times) which may be prone to errors, but are corrected by multi-agent cooperation.
 
+It has been published in [Engineering Applications of Artificial Intelligence](https://www.sciencedirect.com/science/article/pii/S0952197626022207).
+
 ## Basis of operation
 
 ![Diagram of the whole system](/MASACurrent.png?raw=true)
@@ -191,3 +193,18 @@ Finally, another quality paradigm is available that recreates the output of the 
         ros2 launch masacoord BruteMix.launch
         ```
 
+## Citing
+If you use this work for your research or business, please cite it:
+
+```bibtex
+@article{masa,
+title = {Multi-agent auditory scene analysis: Localization correction and speech quality improvement through inter-modular feedback},
+journal = {Engineering Applications of Artificial Intelligence},
+volume = {182},
+pages = {115936},
+year = {2026},
+issn = {0952-1976},
+doi = {https://doi.org/10.1016/j.engappai.2026.115936},
+author = {Caleb Rascon and Luis Gato-Diaz and Eduardo García-Alarcón},
+}
+```

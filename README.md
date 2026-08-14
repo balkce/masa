@@ -75,9 +75,16 @@ sudo apt install terminator
     - Its sampling rate matches the one that `demucs` and `demucsmix` were trained with: `ros_output_sample_rate` should be `16000`.
 
 3. Install the python requirements of all the agents:
+    1. (Optional) Create a Python virtual environment and activate it:
+    ```
+    python3 -m venv ./masa  --system-site-packages
+    source masa/bin/activate
+    ```
+    2. Install requirements:
     ```
     pip install -r requirements.txt
     ```
+
 
 4. [Create a ROS2 package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory. Preferably call this package `masa`.
 

@@ -355,7 +355,7 @@ class DOAOptimizer(Node):
       if req_residtime > 0.0:
         time.sleep(req_residtime)
       
-      if optres.thetas[0] == -1000.0:
+      if optres.thetas[0] == -1000.0 or np.sum(optres.quals) == 0.0:
         self.it = 0
         self.past_doa_calc = 0
         self.past_win_wo_corr = 0

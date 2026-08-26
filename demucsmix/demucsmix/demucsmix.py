@@ -10,6 +10,8 @@ import torch
 import numpy as np
 import sys
 
+import soundfile as sf
+
 import inspect
 
 from threading import Thread
@@ -25,11 +27,19 @@ class DemucsPhaseMixROSAudio(Node):
     
     self.declare_parameter('input_length', 0.512)
     self.input_length = self.get_parameter('input_length').get_parameter_value().double_value
+    self.declare_parameter('beam_type', 'phase')
+    self.beam_type = self.get_parameter('beam_type').get_parameter_value().string_value
+    if self.beam_type != 'mvdr' and self.beam_type != 'phase':
+      print("invalid beam_type value ("+str(self.beam_type)+"). Can only be 'mvdr' or 'phase'. Defaulting to 'phase'.")
+      self.beam_type = 'phase'
     
     this_share_directory = get_package_share_directory('demucsmix')
     this_base_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(this_share_directory))))
     this_src_directory = os.path.join(this_base_directory,"src","demucsmix")
-    self.demucs_modelpath = os.path.join(this_src_directory,"pretrained_model","best.th")
+    if self.beam_type == 'phase':
+      self.demucs_modelpath = os.path.join(this_src_directory,"pretrained_model","best-phase.th")
+    else:
+      self.demucs_modelpath = os.path.join(this_src_directory,"pretrained_model","best-mvdr.th")
     print("Using the following pretrained model: "+self.demucs_modelpath)
     
     sys.path.append(this_src_directory)
@@ -47,32 +57,41 @@ class DemucsPhaseMixROSAudio(Node):
     self.demucs_win_num = int((self.input_length*self.samplerate)/self.jack_win_size)
     print(f"demucs_win_num: {self.demucs_win_num} windows")
     
-    self.demucs_in = [0.0]*(self.demucs_win_num*self.jack_win_size)
-    self.demucs_in_int = [0.0]*(self.demucs_win_num*self.jack_win_size)
-    self.demucs_out = [0.0]*(self.demucs_win_num*self.jack_win_size)
+    self.demucs_len = self.demucs_win_num*self.jack_win_size
+    self.demucs_in = [0.0]*(self.demucs_len)
+    self.demucs_in_int = [0.0]*(self.demucs_len)
+    self.demucs_out = [0.0]*(self.demucs_len*2)
+    self.demucs_out_start_i = 0
     self.demucs_in_win_i = 0
     self.demucs_out_win_i = 0
     
     self.variance = 0
+    self.variance_int = 0
     self.frames = 0
     self.floor = 1e-3
     
+    #self.sf_file_in = sf.SoundFile("out_demucs_in.wav",mode="w",samplerate=self.samplerate,channels=1,subtype='PCM_16')
+    #self.sf_file_in_int = sf.SoundFile("out_demucs_in_int.wav",mode="w",samplerate=self.samplerate,channels=1,subtype='PCM_16')
+    #self.sf_file_out = sf.SoundFile("out_demucs_out.wav",mode="w",samplerate=self.samplerate,channels=1,subtype='PCM_16')
+    #self.sf_file_out2 = sf.SoundFile("out_demucs_out2.wav",mode="w",samplerate=self.samplerate,channels=1,subtype='PCM_16')
+    
     print("doing initial model test to allocate memory")
-    self.READY_TO_CLONE_OUT = True
     self.demucs_thread = Thread(target=self.demucs_callback)
     self.demucs_thread.start()
     self.demucs_thread.join()
     print("...done")
     
     self.variance = 0
+    self.variance_int = 0
     self.frames = 0
-    
-    self.READY_TO_CLONE_OUT = False
-    self.demucs_thread = Thread(target=self.demucs_callback)
+    self.demucs_out_start_i = 0
+    self.demucs_in_win_i = 0
+    self.demucs_out_win_i = 0
     
     print("starting to capture...")
     self.subscription = self.create_subscription(JackAudio, '/jackaudiostereo', self.jackaudio_callback,1000)
     self.subscription  # prevent unused variable warning
+  
   
   def demucs_callback(self):
     self.frames += 1
@@ -82,45 +101,57 @@ class DemucsPhaseMixROSAudio(Node):
     #self.past_start = time.time()
     
     #start_time = time.time()
+    
+    #self.sf_file_in.write(self.demucs_in)
+    #self.sf_file_in_int.write(self.demucs_in_int)
+    
     input_win = torch.tensor(self.demucs_in,device=self.device).unsqueeze(0).unsqueeze(0)
+    interf_signal = torch.tensor(self.demucs_in_int,device=self.device).unsqueeze(0).unsqueeze(0)
     
     #getting norm
     variance = (input_win**2).mean()
     self.variance = variance / self.frames + (1 - 1 / self.frames) * self.variance
     input_win = input_win / (self.floor + math.sqrt(self.variance))
     
-    interf_signal = torch.tensor(self.demucs_in_int,device=self.device).unsqueeze(0).unsqueeze(0)
-    noisy_win = self.combine_interf (input_win,interf_signal)
-    output_win_unnorm = self.demucs(noisy_win)[0][0]
+    #getting norm interf
+    variance_int = (interf_signal**2).mean()
+    self.variance_int = variance_int / self.frames + (1 - 1 / self.frames) * self.variance_int
+    interf_signal = interf_signal / (self.floor + math.sqrt(self.variance_int))
+    
+    noisy_win = self.combine_interf (input_win,interf_signal) # combining beamform output and its null as interference estimation
+    output_win_unnorm,_ = self.extract_interf(self.demucs(noisy_win))
     
     #normalizing output
-    output_win = (output_win_unnorm*math.sqrt(self.variance)).tolist()
+    output_win = (output_win_unnorm[0][0]*math.sqrt(self.variance)).tolist()
     
     #exec_time = time.time() - start_time
     #print(f"execution time : {exec_time}")
     
     #self.get_logger().info('capture time: %f, response time: %f' % (capt_time, exec_time))
     
-    while not self.READY_TO_CLONE_OUT:
-      time.sleep(0.001)
-    self.demucs_out = output_win
-    self.READY_TO_CLONE_OUT = False
+    self.demucs_out[self.demucs_out_start_i:self.demucs_out_start_i+self.demucs_len] = output_win
+    if self.demucs_out_start_i == 0:
+      self.demucs_out_start_i = self.demucs_len
+    else:
+      self.demucs_out_start_i = 0
+    
+    #self.sf_file_out.write(output_win)
   
   def jackaudio_callback(self, msg):
-    data_est = msg.data[0::2]
-    data_int = msg.data[1::2]
-    self.demucs_in[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = data_est
-    self.demucs_in_int[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = data_int
+    self.demucs_in[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = msg.data[0::2]
+    self.demucs_in_int[self.demucs_in_win_i*self.jack_win_size:(self.demucs_in_win_i+1)*self.jack_win_size] = msg.data[1::2]
     
     self.demucs_in_win_i += 1
     if self.demucs_in_win_i >= self.demucs_win_num:
       if self.demucs_thread.is_alive():
+        print(f"demucs_thread.is_alive")
         self.demucs_thread.join()
       self.demucs_thread = Thread(target=self.demucs_callback)
       self.demucs_thread.start()
       self.demucs_in_win_i = 0
     
     filt_win = self.demucs_out[self.demucs_out_win_i*self.jack_win_size:(self.demucs_out_win_i+1)*self.jack_win_size]
+    #self.sf_file_out2.write(filt_win)
     msg_filt = JackAudio()
     msg_filt.size = len(filt_win)
     msg_filt.header.stamp = self.get_clock().now().to_msg()
@@ -128,12 +159,18 @@ class DemucsPhaseMixROSAudio(Node):
     self.publisher.publish(msg_filt)
     
     self.demucs_out_win_i += 1
-    if self.demucs_out_win_i >= self.demucs_win_num:
+    if self.demucs_out_win_i >= self.demucs_win_num*2:
       self.demucs_out_win_i = 0
-      self.READY_TO_CLONE_OUT = True
+    #self.get_logger().info('out_win_i: %d, in_win_i: %d, %d' % (self.demucs_out_win_i, self.demucs_in_win_i,self.demucs_out_start_i))
 
   def combine_interf (self, signal,interf):
     return torch.cat((signal,interf),2)
+
+  def extract_interf (self, signal_w_interf):
+      sig_len = int(signal_w_interf.shape[2]/2) #assuming clean and interf are of the same length
+      signal = signal_w_interf[:,:,:sig_len]
+      interf = signal_w_interf[:,:,sig_len:]
+      return signal, interf
 
   def deserialize_model(self, package, strict=False):
     return model

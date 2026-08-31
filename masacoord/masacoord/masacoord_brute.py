@@ -89,11 +89,11 @@ class MASACoord(Node):
     if self.qual_report != 'single' and self.qual_report != 'all':
       print("invalid qual_report value ("+str(self.qual_report)+"). Can only be 'all' or 'single'. Defaulting to 'single'.")
       self.qual_report = 'single'
-    self.declare_parameter('beamformtype', 'phase')
-    self.beamformtype = self.get_parameter('beamformtype').get_parameter_value().string_value
-    if self.beamformtype != 'phase' and self.beamformtype != 'mvdr':
-      self.get_logger().info("invalid beamformtype value ("+str(self.beamformtype)+"). Can only be 'phase' or 'mvdr'. Defaulting to 'phase'.")
-      self.beamformtype = 'phase'
+    self.declare_parameter('qualbeamformtype', 'phase')
+    self.qualbeamformtype = self.get_parameter('qualbeamformtype').get_parameter_value().string_value
+    if self.qualbeamformtype != 'phase' and self.qualbeamformtype != 'mvdr':
+      self.get_logger().info("invalid qualbeamformtype value ("+str(self.qualbeamformtype)+"). Can only be 'phase' or 'mvdr'. Defaulting to 'phase'.")
+      self.qualbeamformtype = 'phase'
     
     self.masa_nodes ={
       'jackd':
@@ -203,7 +203,7 @@ class MASACoord(Node):
       
       'online_sqa':
         {
-          'cmd': 'ros2 run online_sqa online_sqa_brute --ros-args -p win_len_secs:='+self.win_len_secs+' -p audio_to_eval:='+self.audio_to_eval+' -p init_doa:='+self.init_doa+' -p quality_type:='+self.quality_type+' -p beamformtype:='+self.beamformtype+'',
+          'cmd': 'ros2 run online_sqa online_sqa_brute --ros-args -p win_len_secs:='+self.win_len_secs+' -p audio_to_eval:='+self.audio_to_eval+' -p init_doa:='+self.init_doa+' -p quality_type:='+self.quality_type+' -p beamformtype:='+self.qualbeamformtype+'',
           'cmd_fi': None,
           'cmd_fu':
             [

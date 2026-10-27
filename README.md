@@ -65,6 +65,15 @@ sudo apt-get update
 sudo apt install terminator
 ```
 
+### other dependencies
+
+* libfftw3-dev: a very fast FFT C/C++ implementation
+* libeigen3-dev: lightweight linear algebra library
+* libsndfile1-dev: library to read and write audio files
+* libsamplerate0-dev: library for sample rate conversion
+* libomp-dev: library for parallelization
+
+
 ## Installation
 
 1. Configure the `beamform_config.yaml` inside `beamformphase` so that it matches your microphone setup.

@@ -18,7 +18,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='Online Speech Quality Assessment',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'online_sqa = online_sqa.online_sqa:main',

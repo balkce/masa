@@ -21,7 +21,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='Frequency Selector based on Source Classification',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'freqselect = freqselect.freqselect:main',

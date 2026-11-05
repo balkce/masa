@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(rosjack)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -27,11 +27,13 @@ include_directories(
 
 add_library(rosjack src/rosjack.cpp include/rosjack/rosjack.hpp) 
 
-ament_target_dependencies(rosjack rclcpp std_msgs jack_msgs)
 target_link_libraries(rosjack
   ${JACK_LIBRARIES}
   ${SNDFILE_LIBRARIES}
   ${SAMPLERATE_LIBRARIES}
+  rclcpp::rclcpp
+  ${std_msgs_TARGETS}
+  ${jack_msgs_TARGETS}
 )
 
 ament_export_targets(rosjack HAS_LIBRARY_TARGET)

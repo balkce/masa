@@ -37,10 +37,10 @@ class JACKListDevices(Node):
       rclpy.shutdown()
       exit()
     
-    self.re_card = re.compile("card \d+:")
-    self.re_device = re.compile("device \d+:")
-    #self.re_label = re.compile(": \w+ \[[ \w]+\],")
-    self.re_label = re.compile(": (.*?) \[(.*?)\],")
+    self.re_card = re.compile(r"card \d+:")
+    self.re_device = re.compile(r"device \d+:")
+    #self.re_label = re.compile(r": \w+ \[[ \w]+\],")
+    self.re_label = re.compile(r": (.*?) \[(.*?)\],")
     
     if self.devicetype == "all" or self.devicetype == "playback":
       aplay_output = str(subprocess.check_output([self.aplay_path, "-l"]))

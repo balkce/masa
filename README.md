@@ -67,6 +67,7 @@ sudo apt install terminator
 
 ### other dependencies
 
+* libglib2.0-dev: for multi-thread through GThread
 * libfftw3-dev: a very fast FFT C/C++ implementation
 * libeigen3-dev: lightweight linear algebra library
 * libsndfile1-dev: library to read and write audio files

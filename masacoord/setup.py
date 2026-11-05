@@ -21,7 +21,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='Multi-agent Auditory Scene Analysis coordinator.',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'masacoord = masacoord.masacoord:main',

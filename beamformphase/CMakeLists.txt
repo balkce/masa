@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(beamformphase)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -30,55 +30,61 @@ include_directories(
 )
 
 set(dependencies
-  rclcpp std_msgs jack_msgs rosjack 
+  rclcpp::rclcpp ${std_msgs_TARGETS} ${jack_msgs_TARGETS} ${rosjack_TARGETS}
 )
 
 add_executable(mvdr src/mvdr.cpp)
-ament_target_dependencies(mvdr ${dependencies})
 target_link_libraries(mvdr
   ${FFTW_LIBRARIES}
   OpenMP::OpenMP_CXX
+  ${dependencies}
 )
 
 add_executable(mvdrmix src/mvdrmix.cpp)
-ament_target_dependencies(mvdrmix ${dependencies})
 target_link_libraries(mvdrmix
   ${FFTW_LIBRARIES}
   OpenMP::OpenMP_CXX
+  ${dependencies}
 )
 
 add_executable(phase_parallel src/phase_parallel.cpp)
-ament_target_dependencies(phase_parallel ${dependencies})
 target_link_libraries(phase_parallel
   ${FFTW_LIBRARIES}
   OpenMP::OpenMP_CXX
+  ${dependencies}
 )
 
 add_executable(phase src/phase.cpp)
-ament_target_dependencies(phase ${dependencies})
 target_link_libraries(phase
   ${FFTW_LIBRARIES}
+  ${dependencies}
 )
 
 add_executable(phasemix src/phasemix.cpp)
-ament_target_dependencies(phasemix ${dependencies})
 target_link_libraries(phasemix
   ${FFTW_LIBRARIES}
+  ${dependencies}
 )
 
 add_executable(rosjack_read src/rosjack_read.cpp)
-ament_target_dependencies(rosjack_read ${dependencies})
+target_link_libraries(rosjack_read
+  ${dependencies}
+)
 
 add_executable(rosjack_write src/rosjack_write.cpp)
-ament_target_dependencies(rosjack_write ${dependencies})
+target_link_libraries(rosjack_write
+  ${dependencies}
+)
 
 add_executable(rosjack_write_stereo src/rosjack_write_stereo.cpp)
-ament_target_dependencies(rosjack_write_stereo ${dependencies})
+target_link_libraries(rosjack_write_stereo
+  ${dependencies}
+)
 
 add_executable(rosjack_ref src/rosjack_ref.cpp)
-ament_target_dependencies(rosjack_ref ${dependencies})
 target_link_libraries(rosjack_ref
   ${FFTW_LIBRARIES}
+  ${dependencies}
 )
 
 install(TARGETS mvdr
@@ -88,6 +94,9 @@ install(TARGETS mvdrmix
   DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS phase_parallel
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS phasemix_parallel
   DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS phase

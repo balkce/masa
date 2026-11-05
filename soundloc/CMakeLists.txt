@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(soundloc)
 
 # Default to C99
@@ -73,11 +73,13 @@ if(COMMAND rosidl_get_typesupport_target)
   # Humble or later
   rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
   add_executable(soundloc_multi src/soundloc_multi.cpp)
-  ament_target_dependencies(soundloc_multi rclcpp std_srvs std_msgs)
   target_link_libraries(soundloc_multi
     multisoundloc
     ${GLIB2_LIBRARIES}
     ${cpp_typesupport_target}
+    rclcpp::rclcpp
+    ${std_msgs_TARGETS}
+    ${std_srvs_TARGETS}
   )
 else()
   # Foxy and older

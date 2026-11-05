@@ -17,7 +17,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='DOA Plotter',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'doa_plot = doa_plot.doa_plot:main',

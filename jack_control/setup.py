@@ -17,7 +17,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='ROS2 wrapper of jackd daemon.',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'jack_control = jack_control.jack_control:main',

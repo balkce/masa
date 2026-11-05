@@ -17,7 +17,7 @@ setup(
     maintainer_email='caleb.rascon@gmail.com',
     description='Direction of Arrival Optimization by Maximizing Signal-to-Distortion',
     license='LGP:',
-    tests_require=['pytest'],
+    extras_require={"test": ["pytest"]},
     entry_points={
         'console_scripts': [
             'doaoptimizer = doaoptimizer.doaoptimizer:main',

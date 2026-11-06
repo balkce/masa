@@ -4,22 +4,25 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 
 import matplotlib
+matplotlib.use('QtAgg') #forcing the use of PyQt: pip install --force-reinstall pyqt6
 import matplotlib.pyplot as plt
 import numpy as np
 
 import time
 
-def move_figure(f, x, y):
-    """Move figure's upper left corner to pixel (x, y)"""
-    backend = matplotlib.get_backend()
-    if backend == 'TkAgg':
-        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-    elif backend == 'WXAgg':
-        f.canvas.manager.window.SetPosition((x, y))
-    else:
-        # This works for QT and GTK
-        # You can also use window.setGeometry
-        f.canvas.manager.window.move(x, y)
+#def move_figure(f, x, y):
+#    """Move figure's upper left corner to pixel (x, y)"""
+#    backend = matplotlib.get_backend()
+#    if backend == 'TkAgg':
+#        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
+#    elif backend == 'WXAgg':
+#        f.canvas.manager.window.SetPosition((x, y))
+#    elif backend == 'gtk4agg':
+#        print("GTK4 doest not allow window movement.")
+#    else:
+#        # This works for QT and GTK3
+#        # You can also use window.setGeometry
+#        f.canvas.manager.window.move(x, y)
 
 class ThetaPlot(Node):
   def __init__(self):
@@ -40,8 +43,7 @@ class ThetaPlot(Node):
       self.fig_theta, self.ax_theta = plt.subplots(subplot_kw={'projection': 'polar'},num='DOAOptimizer Output (theta)')
     else:
       self.fig_theta, self.ax_theta = plt.subplots(subplot_kw={'projection': 'polar'})
-    #self.fig_theta.canvas.manager.window.move(640,0)
-    move_figure(self.fig_theta,640,0)
+    #move_figure(self.fig_theta,640,0)
     (self.ln_theta,) = self.ax_theta.plot([0.0], [-0.1], linestyle='-', marker='o', markersize=5, animated=True)
     plt.show(block=False)
     plt.pause(0.1)
@@ -66,8 +68,7 @@ class ThetaPlot(Node):
       self.get_logger().info("max. time: %0.2f" % self.max_time)
       
       self.fig_time, self.ax_time = plt.subplots(num='DOAOptimizer History')
-      #self.fig_time.canvas.manager.window.move(1280,0)
-      move_figure(self.fig_time,1280,0)
+      #move_figure(self.fig_time,1280,0)
       
       (self.ln_time,) = self.ax_time.plot([0.0], [0.0], linestyle='-', marker='.', markersize=5, animated=True)
       self.ax_time.set_xlim(-0.1,self.max_time+0.1)
@@ -79,7 +80,7 @@ class ThetaPlot(Node):
       self.bg_time = self.fig_time.canvas.copy_from_bbox(self.fig_time.bbox)
       self.ax_time.draw_artist(self.ln_time)
       self.fig_time.canvas.blit(self.fig_time.bbox)
-      
+
       self.theta_hist = []
       self.t = []
     

@@ -4,20 +4,21 @@ from rclpy.node import Node
 from soundloc.msg import DOA
 
 import matplotlib
+matplotlib.use('QtAgg') #forcing the use of PyQt: pip install --force-reinstall pyqt6
 import matplotlib.pyplot as plt
 import numpy as np
 
-def move_figure(f, x, y):
-    """Move figure's upper left corner to pixel (x, y)"""
-    backend = matplotlib.get_backend()
-    if backend == 'TkAgg':
-        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-    elif backend == 'WXAgg':
-        f.canvas.manager.window.SetPosition((x, y))
-    else:
-        # This works for QT and GTK
-        # You can also use window.setGeometry
-        f.canvas.manager.window.move(x, y)
+#def move_figure(f, x, y):
+#    """Move figure's upper left corner to pixel (x, y)"""
+#    backend = matplotlib.get_backend()
+#    if backend == 'TkAgg':
+#        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
+#    elif backend == 'WXAgg':
+#        f.canvas.manager.window.SetPosition((x, y))
+#    else:
+#        # This works for QT and GTK
+#        # You can also use window.setGeometry
+#        f.canvas.manager.window.move(x, y)
 
 
 class DOAPlot(Node):
@@ -30,8 +31,7 @@ class DOAPlot(Node):
     self.subscription  # prevent unused variable warning
     
     self.fig, self.ax = plt.subplots(subplot_kw={'projection': 'polar'},num='SoundLoc Output (theta_est)')
-    #self.fig.canvas.manager.window.move(0,0)
-    move_figure(self.fig,0,0)
+    #move_figure(self.fig,0,0)
     (self.ln,) = self.ax.plot([0.0], [0.0], linestyle='', marker='.', markersize=20, animated=True)
     plt.show(block=False)
     plt.pause(0.1)

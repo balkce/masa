@@ -4,23 +4,24 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 
 import matplotlib
+matplotlib.use('QtAgg') #forcing the use of PyQt: pip install --force-reinstall pyqt6
 import matplotlib.pyplot as plt
 import numpy as np
 
 import time
 from threading import Thread
 
-def move_figure(f, x, y):
-    """Move figure's upper left corner to pixel (x, y)"""
-    backend = matplotlib.get_backend()
-    if backend == 'TkAgg':
-        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-    elif backend == 'WXAgg':
-        f.canvas.manager.window.SetPosition((x, y))
-    else:
-        # This works for QT and GTK
-        # You can also use window.setGeometry
-        f.canvas.manager.window.move(x, y)
+#def move_figure(f, x, y):
+#    """Move figure's upper left corner to pixel (x, y)"""
+#    backend = matplotlib.get_backend()
+#    if backend == 'TkAgg':
+#        f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
+#    elif backend == 'WXAgg':
+#        f.canvas.manager.window.SetPosition((x, y))
+#    else:
+#        # This works for QT and GTK
+#        # You can also use window.setGeometry
+#        f.canvas.manager.window.move(x, y)
 
 class QualPlot(Node):
   def __init__(self):
@@ -75,7 +76,7 @@ class QualPlot(Node):
     if self.qual_report == 'single':
       self.fig, self.ax = plt.subplots(num=self.quality_type+' History')
       #self.fig.subplots_adjust(right=0.75)
-      move_figure(self.fig,1280,600)
+      #move_figure(self.fig,1280,600)
       
       (self.ln_qual,) = self.ax.plot([0.0], [0.0], "C0", linestyle='-', marker='.', markersize=5, animated=True)
       self.ax.set_xlim(-0.1,self.max_time+0.1)
@@ -105,7 +106,7 @@ class QualPlot(Node):
     else:
       self.fig, self.ax = plt.subplots(num='Quality History')
       self.fig.subplots_adjust(right=0.75)
-      move_figure(self.fig,1280,600)
+      #move_figure(self.fig,1280,600)
       
       (self.ln_sdr,) = self.ax.plot([0.0], [0.0], "C0", linestyle='-', marker='.', markersize=5, animated=True, label="SDR")
       self.ax.set_xlim(-0.1,self.max_time+0.1)

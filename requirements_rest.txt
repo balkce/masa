@@ -1,0 +1,12 @@
+ninja
+julius
+numpy
+scikit-learn
+soundfile
+matplotlib
+JACK-client
+samplerate
+pesq
+einops
+pyqt6
+

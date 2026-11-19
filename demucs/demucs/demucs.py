@@ -160,7 +160,7 @@ class DemucsPhaseROSAudio(Node):
     return model
   
   def load_demucsmodel(self, model_path, device="cuda"):
-    package = torch.load(model_path, map_location=device)
+    package = torch.load(model_path, map_location=device, weights_only=False)
     
     klass = package['class']
     kwargs = package['kwargs']

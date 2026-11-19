@@ -53,6 +53,8 @@ class MASACoord(Node):
     self.input_length = str(self.get_parameter('input_length').get_parameter_value().double_value)
     self.declare_parameter('init_doa', 15.0)
     self.init_doa = str(self.get_parameter('init_doa').get_parameter_value().double_value)
+    self.declare_parameter('rtsemamba_ctx', 1024)
+    self.rtsemamba_ctx = str(self.get_parameter('rtsemamba_ctx').get_parameter_value().integer_value)
     self.declare_parameter('ref_doa', 0.0)
     self.ref_doa = str(self.get_parameter('ref_doa').get_parameter_value().double_value)
     self.declare_parameter('eta', 0.3)
@@ -135,16 +137,16 @@ class MASACoord(Node):
             ]
         },
       
-      'muse':
+      'rtsemamba':
         {
-          'cmd': 'ros2 run muse muse  --ros-args -p input_length:='+self.input_length+'',
+          'cmd': 'ros2 run rtsemamba rtsemamba  --ros-args -p input_length:='+self.input_length+' -p n_ctx:='+self.rtsemamba_ctx+'',
           'cmd_fi': None,
           'cmd_fu': None
         },
       
-      'muse':
+      'rtsemambamix':
         {
-          'cmd': 'ros2 run musemix musemix  --ros-args -p input_length:='+self.input_length+'',
+          'cmd': 'ros2 run rtsemambamix rtsemambamix  --ros-args -p input_length:='+self.input_length+' -p n_ctx:='+self.rtsemamba_ctx+'',
           'cmd_fi': None,
           'cmd_fu': None
         },

@@ -2,6 +2,7 @@
     ros__parameters:
         input_length: 0.512
         init_doa: 15.0
+        rtsemamba_ctx: 1024 #for rtsemamba, amount of context frames (memory usage will sky rocket if too high)
         ref_doa: 0.0
         reqrange_ini: 20.0 # 10.0 for phase, 15.0 for mvdr
         reqrange_fin: 20.0 # 10.0 for phase, 15.0 for mvdr
@@ -18,7 +19,7 @@
         opt_correction: False
         masa_order: [
           'beamformermvdr',
-          'muse',
+          'rtsemamba',
           'jack_write',
           'theta_plot',
           'online_sqa',

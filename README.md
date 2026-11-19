@@ -9,17 +9,17 @@ It has been published in [Engineering Applications of Artificial Intelligence](h
 
 The following directories in this repository represent one agent:
 
-- `beamformer`: a beamformer module, with three variations: `beamformerphase` which is based on the phase difference between microphones, and only provides the estimation of the source of interest; `beamformerphasemix` that also provides the estimation of the interference, in a multiplexed format; `beamformermvdr` which is based on the Minimum Variance Distortionless Response technique (with covariance update), and only provides the estimation of the source of interest; and `beamformermvdrmix` which is also based on MVDR while also providing the estimation of the interference (by substraction from reference microphone), in a multiplexed format. This modules also provides the `jack_write`/`jack_writemix` agents that channel the output of the `demucs`/`demucsmix`/`muse`/`musemix` agents to the JACK server.
+- `beamformer`: a beamformer module, with three variations: `beamformerphase` which is based on the phase difference between microphones, and only provides the estimation of the source of interest; `beamformerphasemix` that also provides the estimation of the interference, in a multiplexed format; `beamformermvdr` which is based on the Minimum Variance Distortionless Response technique (with covariance update), and only provides the estimation of the source of interest; and `beamformermvdrmix` which is also based on MVDR while also providing the estimation of the interference (by substraction from reference microphone), in a multiplexed format. This modules also provides the `jack_write`/`jack_writemix` agents that channel the output of the `demucs`/`demucsmix`/`rtsemamba`/`rtsemambamix` agents to the JACK server.
 - `demucs`: a speech enhancer based on the Demucs model, trained with the output of the `beamformerphasemix` agent variation.
 - `demucsmix`: a variation of `demucs` that uses the output of the `beamformermix` agent variation.
-- `muse`: a speech enhancer based on the MUSE model, trained with the output of the `beamformermvdr` agent variation.
-- `musemix`: a variation of `muse` that uses the output of the `beamformermvdrmix` agent variation.
+- `rtsemamba`: a speech enhancer based on the [`RT-SEMamba`](https://github.com/RoyChao19477/RT-SEMamba) architecture, trained with the output of the `beamformermvdr` agent variation.
+- `rtsemambamix`: a variation of `rtsemamba` that uses the output of the `beamformermvdrmix` agent variation.
 - `doaoptimizer`: a direction-of-arrival corrector by optimizing the `demucs` speech quality.
 - `doaoptimizer_brute`: a direction-of-arrival corrector by optimizing the quality assessment provided by the `online_sqa_brute` agent.
 - `doa_plot`: a plotter of the outputs of both the `soundloc` and the `doaoptimizer` agents.
 - `jack_control`: controls the start and end of the [`jackaudio`](https://jackaudio.org/) server.
 - `masacoord`: coordinates the start and end of all the agents using a [`terminator`](https://gnome-terminator.org/) split console.
-- `online_sqa`: measures the speech quality of the `demucs`/`demucsmix`/`muse`/`musemix` output.
+- `online_sqa`: measures the speech quality of the `demucs`/`demucsmix`/`rtsemamba`/`rtsemambamix` output.
 - `online_sqa_brute`: measures the speech quality of a recreated beamformer output.
 - `soundloc`: a multiple-sound-source direction-of-arrival estimator.
 
@@ -88,30 +88,67 @@ sudo apt install terminator
     1. (Optional) Create a Python virtual environment and activate it:
     ```
     python3 -m venv ./masa  --system-site-packages
+    touch masa/COLCON_IGNORE
     source masa/bin/activate
     ```
-    2. Install requirements:
+    2. Install torch 2.13 with CUDA 13.0:
     ```
-    pip install -r requirements.txt
+    pip install -r requirements_torch.txt
     ```
-
+    
+    3. Install the rest of the requirements:
+    ```
+    pip install -r requirements_rest.txt
+    pip install --force-reinstall pyqt6
+    ```
+    
+    4. (Only necessary if using rtsemamba or rtsemambmix) Compile causal-conv1d and mamba-ssm:
+    ```
+    #setting up CUDA compilation libraries
+    sudo apt install cuda-toolkit #in Ubuntu 26.04, this installs CUDA 13.1
+    export CUDA_HOME=/usr/local/cuda-13.1
+    export PATH=/usr/local/cuda-13.1/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda-13.1/lib64:$LD_LIBRARY_PATH
+    
+    #setting up variables to speed up pip compilation
+    export TORCH_CUDA_ARCH_LIST="$(nvidia-smi --query-gpu=compute_cap --format=noheader)"
+    export MAX_JOBS="$(awk '/MemTotal/ {print int(($2/1024/1024)/6)}' /proc/meminfo)"
+    
+    #each of these next steps will take a LONG time
+    pip install --no-build-isolation causal-conv1d
+    pip install --no-build-isolation mamba-ssm
+    ```
+    
+    5. Install some more packages to get rid of ROS2 warnings later on:
+    ```
+    pip install "pandas-stubs"
+    pip install "pyproj"
+    pip install "Flask>=2.3.2"
+    pip install "Flask-SQLAlchemy>=3.0.1"
+    pip install "agate-dbf>=0.2.3"
+    ```
 
 4. [Create a ROS2 package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory. Preferably call this package `masa`.
 
 5. Specify which agents to launch in `src/masacoord/config/masacoord_config.yaml`.
 
-6. Compile the newly created `masa` ROS2 package (this may take a while):
+6. Compile the newly created `masa` ROS2 package (this may take a while), using `python -m` to force the ROS2 nodes to use the python installed in the virtual environment:
     ```
-    colcon build
+    python -m colcon build
     ```
 
-## To run
+7. Compile it again now using symlinks so that you don't need to run `colcon build` every time you modify a configuration file or Python script:
+    ```
+    python -m colcon build --symlink-install
+    ```
+
+    ## To run
 
 To run all of the agents in parallel, do:
 ```
 ros2 launch masacoord masacoord.launch
 ```
-You can change which agents are run by modifying `src/masacoord/config/masacoord_config.yaml`. However, for these changes to take effect, you'll need to re-compile the `masa` ROS2 package (since the change is minimal this time around, it shouldn't take as long as before).
+You can change which agents are run by modifying `src/masacoord/config/masacoord_config.yaml`.
 
 
 ## Agents sets
@@ -179,11 +216,11 @@ The **DOACorrection** set launches the agents that are compatible with the mono 
         ros2 launch masacoord DOACorrectionMix.launch
         ```
 
-Finally, another quality paradigm is available that recreates the output of the beamformer in a DOA range, to provide a more robust quality assessment. The range is defined by a given central DOA, a given range, and a given number of steps to evaluate inside that range. It is slower than the other quality paradigm, since it assess the quality several times per audio window, instead of just one. However, it has shown to provide robust results in a wide variety of real-life scenarios. Additionally, for consistency, it employs the `muse` speech enhancer along with its respective `beamformermvdr` agent. It also has a mix variation of both agents.
+Finally, another quality paradigm is available that recreates the output of the beamformer in a DOA range, to provide a more robust quality assessment. The range is defined by a given central DOA, a given range, and a given number of steps to evaluate inside that range. It is slower than the other quality paradigm, since it assess the quality several times per audio window, instead of just one. However, it has shown to provide robust results in a wide variety of real-life scenarios. Additionally, for consistency, it employs the `rtsemamba` speech enhancer along with its respective `beamformermvdr` agent. It also has a mix variation of both agents.
 
 - **Brute** set: both frequency selection and DOA correction are carried out with another quality paradigm.
     - `beamformermvdr`
-    - `muse`
+    - `rtsemamba`
     - `jack_write`
     - `online_sqa_brute`
     - `soundloc`
@@ -197,7 +234,7 @@ Finally, another quality paradigm is available that recreates the output of the 
         ```
 - **BruteMix** set: both frequency selection and DOA correction are carried out with another quality paradigm, using the mix variation.
     - `beamformermvdrmix`
-    - `musemix`
+    - `rtsemambamix`
     - `jack_write`
     - `online_sqa_brute`
     - `soundloc`
@@ -223,5 +260,17 @@ year = {2026},
 issn = {0952-1976},
 doi = {https://doi.org/10.1016/j.engappai.2026.115936},
 author = {Caleb Rascon and Luis Gato-Diaz and Eduardo García-Alarcón},
+}
+```
+
+```bibtex
+@article{masabrute,
+title={Multi-agent Auditory Scene Analysis: Improved Localization Speed and Robustness by Multi-beamformed Speech Quality Feedback}, 
+author={Caleb Rascon},
+year={2026},
+eprint={2610.00538},
+archivePrefix={arXiv},
+primaryClass={eess.AS},
+url={https://arxiv.org/abs/2610.00538}, 
 }
 ```

@@ -76,6 +76,7 @@ sudo apt install terminator
 
 
 ## Installation
+These steps assume that Ubuntu 26.04 or equivalent is being used. ROS2 Lyrical will be installed as part of the process.
 
 1. Configure the `beamform_config.yaml` inside `beamformphase` so that it matches your microphone setup.
 
@@ -128,7 +129,7 @@ sudo apt install terminator
     pip install "agate-dbf>=0.2.3"
     ```
 
-4. [Create a ROS2 package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory. Preferably call this package `masa`.
+4. [Install ROS2](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html): `ros-lyrical-ros-base` is enough for our purposes. Then, [create a ROS2 package](https://docs.ros.org/en/lyrical/ROS-Framework/client-libraries/Working-with-Client-Libraries/Creating-Your-First-ROS2-Package.html), and place all of the directories in this repository inside the package's `src` directory. Preferably call this package `masa`.
 
 5. Specify which agents to launch in `src/masacoord/config/masacoord_config.yaml`.
 
